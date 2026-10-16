@@ -23,16 +23,10 @@
   <article>
     <header><h2>Client et véhicule</h2></header>
     <div class="field-grid">
-      <div>
-        <label for="id_client">{{ form.client.label }}</label>
-        <select name="client" id="id_client" {% if form.client.errors %}aria-invalid="true"{% endif %}
-                hx-get="{% url 'storage:booking_vehicles' %}" hx-target="#vehicle-field" hx-trigger="change">
-          <option value="">— Choisir un client —</option>
-          {% for client in form.fields.client.queryset %}
-            <option value="{{ client.pk }}" {% if client.pk|stringformat:"s" == form.client.value|stringformat:"s" %}selected{% endif %}>{{ client.display_name }}</option>
-          {% endfor %}
-        </select>
-        {% for error in form.client.errors %}<small class="error">{{ error }}</small>{% endfor %}
+      <div id="client-field">
+        {% with clients=form.fields.client.queryset selected=form.client.value|stringformat:"s" errors=form.client.errors %}
+          {% include "storage/_client_select.html" %}
+        {% endwith %}
       </div>
       <div>
         <div id="vehicle-field">
@@ -43,6 +37,7 @@
         {% for error in form.vehicle.errors %}<small class="error">{{ error }}</small>{% endfor %}
       </div>
     </div>
+    <div id="quick-client"></div>
     <div id="quick-vehicle"></div>
   </article>
 

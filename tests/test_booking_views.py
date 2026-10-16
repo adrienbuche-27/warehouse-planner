@@ -238,6 +238,63 @@ def test_quick_vehicle_creation(admin_client):
     assert response["HX-Retarget"] == "#quick-vehicle"
 
 
+def test_booking_form_offers_new_client_and_vehicle(admin_client):
+    content = admin_client.get(reverse("storage:booking_create")).content.decode()
+    assert reverse("storage:booking_quick_client") in content
+    assert reverse("storage:booking_quick_vehicle") in content
+    assert 'id="quick-client"' in content
+
+
+def test_quick_client_form_is_the_full_client_form(admin_client):
+    content = admin_client.get(reverse("storage:booking_quick_client")).content.decode()
+    for name in ["client_type", "company_name", "vat_number", "first_name", "last_name"]:
+        assert f'name="qc-{name}"' in content
+    for name in ["email", "phone", "street", "postal_code", "city", "country", "notes"]:
+        assert f'name="qc-{name}"' in content
+
+
+def test_quick_client_creation_selects_it_and_opens_the_vehicle_form(admin_client):
+    make_client(first_name="Anne", last_name="Adam")
+    data = {
+        "qc-client_type": "private",
+        "qc-first_name": "Marie",
+        "qc-last_name": "Lambert",
+        "qc-email": "marie@example.be",
+        "qc-phone": "0470 11 22 33",
+        "qc-street": "Rue Haute 5",
+        "qc-postal_code": "6700",
+        "qc-city": "Arlon",
+        "qc-country": "Belgique",
+    }
+    response = admin_client.post(reverse("storage:booking_quick_client"), data)
+    client = Client.objects.get(last_name="Lambert")
+    content = response.content.decode()
+    assert f'value="{client.pk}" selected' in content
+    assert "Anne Adam" in content  # the other clients stay in the list
+    # Out-of-band swaps: the client form closes and the new-vehicle form opens for the client.
+    assert '<div id="quick-client" hx-swap-oob="true"></div>' in content
+    assert '<div id="vehicle-field" hx-swap-oob="true">' in content
+    assert "Nouveau véhicule pour Marie Lambert" in content
+    assert 'name="qv-plate"' in content
+
+
+def test_quick_client_errors_stay_in_the_client_form(admin_client):
+    data = {"qc-client_type": "business", "qc-email": "info@example.be", "qc-country": "Belgique"}
+    response = admin_client.post(reverse("storage:booking_quick_client"), data)
+    assert response["HX-Retarget"] == "#quick-client"
+    content = response.content.decode()
+    assert "Le numéro de TVA est obligatoire pour une entreprise." in content
+    assert content.count("Ce champ est obligatoire.") == 4  # street, postal code, city, phone
+    assert Client.objects.count() == 0
+
+
+def test_quick_vehicle_form_has_all_vehicle_fields(admin_client):
+    url = reverse("storage:booking_quick_vehicle")
+    content = admin_client.get(url, {"client": make_client().pk}).content.decode()
+    for name in ["plate", "brand", "model", "length_m", "height_m", "notes"]:
+        assert f'name="qv-{name}"' in content
+
+
 # --- Detail and actions ------------------------------------------------------
 
 

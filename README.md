@@ -116,7 +116,10 @@ or templates, so it can be unit-tested.
   when they are created, so changing a setting never alters existing ones.
 - **Rows** are created on the Paramètres page ("Créer les rangées" numbers them after the
   existing ones: R01, R02, …) and edited inline in the table.
-- **Clients and vehicles** can be archived instead of deleted. Archived ones are hidden from
+- **Clients and vehicles**: a client's address and phone are required (invoices need the
+  address). Both share one form template, `templates/clients/_client_fields.html`, also used by
+  "+ Nouveau client" in the booking form: a client created there is selected and the booking
+  goes straight on to "+ Nouveau véhicule". They can be archived instead of deleted. Archived ones are hidden from
   lists (tick "Inclure les archivés" to see them); a vehicle whose client is archived counts as
   archived too. Deleting is refused as soon as bookings or invoices are linked: those links are
   declared with `on_delete=PROTECT`, and `core.services.protected_objects()` reports them.

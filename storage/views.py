@@ -17,7 +17,14 @@ from core.pricing import compute_totals
 from invoicing import services as invoicing_services
 from storage import planning as planning_module
 from storage import services
-from storage.forms import BookingForm, ExtendForm, QuickVehicleForm, RowForm, StatusDateForm
+from storage.forms import (
+    BookingForm,
+    ExtendForm,
+    QuickClientForm,
+    QuickVehicleForm,
+    RowForm,
+    StatusDateForm,
+)
 from storage.models import Booking, BookingStatus, Row, compute_end_date
 
 
@@ -322,6 +329,29 @@ def booking_suggestions(request):
         context["suggestions"] = services.suggest_placements(vehicle, start, end, booking)[:5]
         context["already_booked"] = bool(services.vehicle_conflicts(vehicle, start, end, booking))
     return render(request, "storage/_suggestions.html", context)
+
+
+def booking_quick_client(request):
+    """ "+ Nouveau client" inside the booking form.
+
+    Once saved, the new client is selected and the new-vehicle form opens for them, so the
+    booking can go on without leaving the page.
+    """
+    if request.method == "POST":
+        form = QuickClientForm(request.POST)
+        if form.is_valid():
+            client = form.save()
+            context = {
+                "clients": Client.objects.filter(is_archived=False),
+                "selected": str(client.pk),
+                "new_client": client,
+                "vehicle_form": QuickVehicleForm(),
+            }
+            return render(request, "storage/_client_select.html", context)
+        response = render(request, "storage/_quick_client_form.html", {"form": form})
+        response["HX-Retarget"] = "#quick-client"
+        return response
+    return render(request, "storage/_quick_client_form.html", {"form": QuickClientForm()})
 
 
 def booking_quick_vehicle(request):

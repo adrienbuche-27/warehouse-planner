@@ -36,6 +36,11 @@ urlpatterns = [
         name="booking_suggestions",
     ),
     path(
+        "reservations/aide/nouveau-client/",
+        views.booking_quick_client,
+        name="booking_quick_client",
+    ),
+    path(
         "reservations/aide/nouveau-vehicule/",
         views.booking_quick_vehicle,
         name="booking_quick_vehicle",

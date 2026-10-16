@@ -221,8 +221,13 @@ button.danger {
 }
 
 /* Client form: company fields only for a business */
-.client-form:has(input[name="client_type"][value="private"]:checked) .business-only {
+/* name$= also matches the prefixed field of the booking form's "+ Nouveau client" (qc-client_type). */
+.client-form:has(input[name$="client_type"][value="private"]:checked) .business-only {
   display: none;
+}
+.client-form h3 {
+  font-size: 1.05rem;
+  margin: var(--pico-spacing) 0 0.75rem;
 }
 
 /* Booking statuses */
@@ -242,22 +247,26 @@ button.danger {
 .warn { color: var(--app-warn); font-weight: 600; }
 .ok { color: var(--app-ok); }
 
-/* Booking form */
-.vehicle-select {
+/* Booking form: dropdowns with their "+ Nouveau ..." button */
+.select-with-add {
   display: flex;
   gap: 0.5rem;
 }
-.vehicle-select select { flex: 1; }
-.vehicle-select button {
+.select-with-add select { flex: 1; }
+.select-with-add button {
   width: auto;
   white-space: nowrap;
   margin-bottom: var(--pico-spacing);
 }
-.quick-vehicle {
+/* "+ Nouveau client" and "+ Nouveau véhicule" forms inside the booking form */
+.quick-form {
   border: 1px dashed var(--pico-muted-border-color);
   border-radius: var(--pico-border-radius);
   padding: var(--pico-spacing);
+  margin-bottom: var(--pico-spacing);
 }
+.quick-form legend { font-weight: 600; }
+.success { color: var(--app-ok); }
 dl.summary {
   display: flex;
   flex-wrap: wrap;

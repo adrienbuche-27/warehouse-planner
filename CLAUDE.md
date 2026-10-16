@@ -279,7 +279,7 @@ Navigation bar: **Tableau de bord · Planning · Réservations · Clients · Vé
 ### 7.3 Réservations
 
 - List with filters: status, row, client, date range. Search by plate or client name.
-- **Booking form**: select client, then vehicle (HTMX dependent dropdown; "+ Nouveau véhicule" inline), start date, number of periods. The end date and price (HT, TVA, TTC) are computed live. "Proposer un emplacement" shows the ranked suggestions from 6.3 (top 5); picking one fills row and position. Manual row/position entry is allowed, but `check_fit` must pass. Blocking conflicts show a warning with the move plan and require ticking "Je confirme".
+- **Booking form**: select client, then vehicle (HTMX dependent dropdown; "+ Nouveau client" and "+ Nouveau véhicule" open the full forms inline: a new client is selected and goes straight on to the new-vehicle form), start date, number of periods. The end date and price (HT, TVA, TTC) are computed live. "Proposer un emplacement" shows the ranked suggestions from 6.3 (top 5); picking one fills row and position. Manual row/position entry is allowed, but `check_fit` must pass. Blocking conflicts show a warning with the move plan and require ticking "Je confirme".
 - Booking detail: all info, status actions (Marquer en stock / Marquer sortie / Annuler / Prolonger), linked invoices, reminder history, blockers.
 
 ### 7.4 Clients and Véhicules

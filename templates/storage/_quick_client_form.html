@@ -1,0 +1,12 @@
+{# "+ Nouveau client" inside the booking form. Enter does not submit the booking form here. #}
+<fieldset class="quick-form client-form"
+          onkeydown="if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') event.preventDefault()">
+  <legend>Nouveau client</legend>
+  {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
+  {% include "clients/_client_fields.html" %}
+  <div class="form-actions">
+    <button type="button" hx-post="{% url 'storage:booking_quick_client' %}"
+            hx-include="closest fieldset" hx-target="#client-field">Ajouter le client</button>
+    <button type="button" class="secondary outline" onclick="this.closest('#quick-client').innerHTML = ''">Annuler</button>
+  </div>
+</fieldset>
