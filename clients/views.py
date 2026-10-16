@@ -1,6 +1,8 @@
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from clients import services
@@ -65,11 +67,16 @@ def client_detail(request, pk):
 def client_edit(request, pk):
     client = get_object_or_404(Client, pk=pk)
     form = ClientForm(request.POST or None, instance=client)
+    # ?next=<page>: go back there after saving (e.g. the invoice waiting for the address).
+    next_url = request.POST.get("next") or request.GET.get("next", "")
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        next_url = ""
     if form.is_valid():
         form.save()
         messages.success(request, "Client enregistré.")
-        return redirect("clients:client_detail", pk=client.pk)
-    return render(request, "clients/client_form.html", {"form": form, "client": client})
+        return redirect(next_url or reverse("clients:client_detail", args=[client.pk]))
+    context = {"form": form, "client": client, "next_url": next_url}
+    return render(request, "clients/client_form.html", context)
 
 
 @require_POST

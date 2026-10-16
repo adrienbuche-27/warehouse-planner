@@ -176,6 +176,30 @@ def test_issue_requires_lines_and_company_details():
         services.issue_invoice(booking_invoice())
 
 
+def test_issue_requires_the_client_address():
+    # A client created before the address became required.
+    client = make_client(street="", city="")
+    invoice = booking_invoice(client=client)
+    assert services.missing_client_details(client) == ["rue et numéro", "localité"]
+    with pytest.raises(services.InvoicingError, match="rue et numéro, localité"):
+        services.issue_invoice(invoice, issue_date=D(2027, 3, 1))
+    invoice.refresh_from_db()
+    assert invoice.is_draft and invoice.number is None
+    assert not NumberSequence.objects.exists()  # no number used: no gap
+
+    client.street, client.city = "Rue Haute 5", "Arlon"
+    client.save()
+    assert services.issue_invoice(invoice, issue_date=D(2027, 3, 1)).number == "2027-0001"
+
+
+def test_issue_requires_the_vat_number_of_a_business_client():
+    business = make_business(vat_number="")
+    assert services.missing_client_details(business) == ["numéro de TVA"]
+    with pytest.raises(services.InvoicingError, match="numéro de TVA"):
+        services.issue_invoice(booking_invoice(client=business))
+    assert services.missing_client_details(make_client()) == []
+
+
 # --- Issue: snapshots, totals, PDF (8.1, 8.3) ----------------------------------
 
 

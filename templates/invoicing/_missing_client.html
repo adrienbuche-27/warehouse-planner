@@ -1,0 +1,8 @@
+{# Draft invoice whose client lacks details printed on the invoice (name, address, VAT). #}
+{% if missing_client and doc.is_draft %}
+  <article class="notice">
+    Avant d'émettre, complétez la fiche du client {{ doc.client.display_name|default:"" }} :
+    {{ missing_client|join:", " }}.
+    <a href="{% url 'clients:client_edit' doc.client_id %}?next={{ request.path|urlencode }}">Modifier le client</a>
+  </article>
+{% endif %}

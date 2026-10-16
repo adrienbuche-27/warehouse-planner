@@ -145,7 +145,10 @@ or templates, so it can be unit-tested.
   - "Émettre" assigns the number (`AAAA-NNNN`, gap-free per year), copies the client and company
     details, computes the totals (VAT per line), the structured communication and stores the PDF
     in `media/invoices/AAAA/`. Issuing is refused while the company name, address, VAT number
-    or IBAN are missing in Paramètres. If anything fails, nothing is saved and no number is used.
+    or IBAN are missing in Paramètres, or while the client's name, address or (for a business)
+    VAT number are missing (`missing_client_details()`; the invoice page links to the client
+    form, which comes back to the invoice). If anything fails, nothing is saved and no number
+    is used.
   - Issued invoices and credit notes are read-only and can never be deleted (model, screens and
     admin). Only the payment fields can change: "Marquer payée" / "Annuler le paiement".
   - "Créer une note de crédit" copies all the lines of the invoice; edit them before issuing to

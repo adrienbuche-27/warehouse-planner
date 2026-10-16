@@ -128,6 +128,57 @@ def test_issue_refused_without_company_details(admin_client):
     assert invoice.is_draft
 
 
+def test_issue_refused_while_the_client_address_is_incomplete(admin_client):
+    client = make_client(postal_code="")
+    invoice = make_invoice(client=client)
+    detail_url = reverse("invoicing:invoice_detail", args=[invoice.pk])
+    edit_url = reverse("clients:client_edit", args=[client.pk])
+    content = admin_client.get(detail_url).content.decode()
+    assert "complétez la fiche du client" in content and "code postal" in content
+    assert f"{edit_url}?next={detail_url}" in content
+
+    response = admin_client.post(reverse("invoicing:invoice_issue", args=[invoice.pk]), follow=True)
+    assert "Complétez d&#x27;abord la fiche du client" in response.content.decode()
+    invoice.refresh_from_db()
+    assert invoice.is_draft
+
+    # "Modifier le client" comes back to the invoice once the client is saved.
+    content = admin_client.get(edit_url, {"next": detail_url}).content.decode()
+    assert f'name="next" value="{detail_url}"' in content
+    data = {
+        "client_type": "private",
+        "first_name": client.first_name,
+        "last_name": client.last_name,
+        "email": client.email,
+        "phone": client.phone,
+        "street": client.street,
+        "postal_code": "6700",
+        "city": client.city,
+        "country": "Belgique",
+        "next": detail_url,
+    }
+    assert admin_client.post(edit_url, data).url == detail_url
+    assert "complétez la fiche du client" not in admin_client.get(detail_url).content.decode()
+
+
+def test_client_edit_ignores_an_external_next_url(admin_client):
+    client = make_client()
+    data = {
+        "client_type": "private",
+        "first_name": client.first_name,
+        "last_name": client.last_name,
+        "email": client.email,
+        "phone": client.phone,
+        "street": client.street,
+        "postal_code": client.postal_code,
+        "city": client.city,
+        "country": "Belgique",
+        "next": "https://example.com/",
+    }
+    response = admin_client.post(reverse("clients:client_edit", args=[client.pk]), data)
+    assert response.url == reverse("clients:client_detail", args=[client.pk])
+
+
 def test_delete_draft(admin_client):
     invoice = make_invoice()
     booking = invoice.booking

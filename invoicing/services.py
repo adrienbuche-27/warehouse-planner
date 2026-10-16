@@ -201,6 +201,35 @@ def _require_company_details(app_settings: AppSettings) -> None:
         )
 
 
+REQUIRED_CLIENT_FIELDS = {
+    "street": "rue et numéro",
+    "postal_code": "code postal",
+    "city": "localité",
+    "country": "pays",
+}
+
+
+def missing_client_details(client) -> list[str]:
+    """Client details printed on the invoice (8.1) that are still empty: the name, the address
+    and, for a business, the VAT number. Clients created before the address became required
+    may lack them."""
+    missing = [] if client.display_name else ["nom"]
+    missing += [
+        label for field, label in REQUIRED_CLIENT_FIELDS.items() if not getattr(client, field)
+    ]
+    if client.is_business and not client.vat_number:
+        missing.append("numéro de TVA")
+    return missing
+
+
+def _require_client_details(client) -> None:
+    missing = missing_client_details(client)
+    if missing:
+        raise InvoicingError(
+            f"Complétez d'abord la fiche du client « {client} » : " + ", ".join(missing) + "."
+        )
+
+
 def _copy_company(document, app_settings: AppSettings) -> None:
     for field in [
         "company_name",
@@ -265,6 +294,7 @@ def issue_invoice(invoice: Invoice, issue_date: datetime.date | None = None) -> 
         raise InvoicingError("Ajoutez au moins une ligne avant d'émettre la facture.")
     app_settings = AppSettings.load()
     _require_company_details(app_settings)
+    _require_client_details(invoice.client)
     issue_date = issue_date or timezone.localdate()
 
     try:

@@ -126,6 +126,7 @@ def invoice_detail(request, pk):
         "payment_form": PaymentForm(),
         "credit_form": CreditNoteReasonForm(),
         "missing_company": services.missing_company_details_now(),
+        "missing_client": services.missing_client_details(invoice.client),
     }
     return render(request, "invoicing/invoice_detail.html", context)
 
