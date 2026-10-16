@@ -2,4 +2,6 @@
 Django==5.2.18
 django-environ==0.14.0
 weasyprint==70.0
+# Image uploads (company logo). Also a WeasyPrint dependency; pinned explicitly here.
+Pillow==12.3.0
 gunicorn==26.2.0
