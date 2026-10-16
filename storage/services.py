@@ -90,7 +90,7 @@ def occupancy(lengths: list[Decimal], gap: Decimal) -> Decimal:
     return sum(lengths, Decimal("0")) + gap * (len(lengths) - 1)
 
 
-def _timeline(slots: list[Slot], start: datetime.date, end: datetime.date, gap: Decimal):
+def occupancy_timeline(slots: list[Slot], start: datetime.date, end: datetime.date, gap: Decimal):
     """Yield (day, slots present, metres used) for each day in [start, end] where the set of
     vehicles changes. Occupancy is constant between two change days, so checking these days
     is the same as checking every day (a "sweep" over the change dates)."""
@@ -130,7 +130,8 @@ def _fit(candidate: Slot, others: list[Slot], row_length: Decimal, gap: Decimal)
     """Pure fit check of `candidate` against the other active slots of the same row."""
     others = [slot for slot in others if slot.overlaps(candidate.start, candidate.end)]
     peak, peak_present = Decimal("0"), []
-    for _, present, used in _timeline(others + [candidate], candidate.start, candidate.end, gap):
+    slots = others + [candidate]
+    for _, present, used in occupancy_timeline(slots, candidate.start, candidate.end, gap):
         if used > peak:
             peak, peak_present = used, present
     too_long = peak > row_length
@@ -200,7 +201,7 @@ def check_fit(
 EXIT, ENTRY = "exit", "entry"
 
 
-def _blockers(candidate: Slot, others: list[Slot], event: str) -> list[Slot]:
+def find_blockers(candidate: Slot, others: list[Slot], event: str) -> list[Slot]:
     """Slots closer to the aisle that are physically present when `candidate` leaves/enters."""
     if event == EXIT:
         found = [
@@ -228,7 +229,7 @@ def _blocked_by_candidate(candidate: Slot, others: list[Slot]) -> list[Slot]:
     return [
         slot
         for slot in others
-        if _blockers(slot, [candidate], EXIT) or _blockers(slot, [candidate], ENTRY)
+        if find_blockers(slot, [candidate], EXIT) or find_blockers(slot, [candidate], ENTRY)
     ]
 
 
@@ -240,7 +241,7 @@ def get_blockers(booking: Booking, event: str = EXIT) -> list[Booking]:
     They are put back in reverse order. Only active bookings count.
     """
     others = _active_slots(booking.row, booking.start_date, booking.end_date, booking)
-    return [slot.booking for slot in _blockers(Slot.of(booking), others, event)]
+    return [slot.booking for slot in find_blockers(Slot.of(booking), others, event)]
 
 
 @dataclass
@@ -299,17 +300,17 @@ def placement_warnings(
     planned = Booking(vehicle=vehicle, row=row, position=position, start_date=start, end_date=end)
     warnings = []
     for event in (ENTRY, EXIT):
-        blockers = [slot.booking for slot in _blockers(candidate, others, event)]
+        blockers = [slot.booking for slot in find_blockers(candidate, others, event)]
         if blockers:
             warnings.append(MovePlan(planned, event, blockers).as_text())
     for slot in _blocked_by_candidate(candidate, others):
         blocked = slot.booking
-        if _blockers(slot, [candidate], EXIT):
+        if find_blockers(slot, [candidate], EXIT):
             warnings.append(
                 f"Ce véhicule bloquera la sortie de {blocked.vehicle.plate} "
                 f"(pos. {blocked.position}) le {blocked.end_date:%d/%m/%Y}."
             )
-        if _blockers(slot, [candidate], ENTRY):
+        if find_blockers(slot, [candidate], ENTRY):
             warnings.append(
                 f"Ce véhicule bloquera l'entrée de {blocked.vehicle.plate} "
                 f"(pos. {blocked.position}) le {blocked.start_date:%d/%m/%Y}."
@@ -377,7 +378,8 @@ def suggest_placements(
             fit = _fit(candidate, others, row_length, gap)
             if not fit.ok:
                 continue
-            blocked_by = _blockers(candidate, others, EXIT) + _blockers(candidate, others, ENTRY)
+            blocked_by = find_blockers(candidate, others, EXIT)
+            blocked_by += find_blockers(candidate, others, ENTRY)
             blocks = _blocked_by_candidate(candidate, others)
             suggestions.append(
                 Suggestion(
@@ -468,7 +470,7 @@ def check_extension(booking: Booking, added_periods: int) -> ExtensionCheck:
     return ExtensionCheck(
         new_end_date=new_end,
         fit=fit,
-        new_exit_blockers=[s.booking for s in _blockers(extended, others, EXIT)],
+        new_exit_blockers=[s.booking for s in find_blockers(extended, others, EXIT)],
         newly_blocked=newly_blocked,
     )
 
@@ -523,7 +525,7 @@ def bookings_not_fitting(
         length = override if override is not None else default_row_length
         start = max(today(), min(slot.start for slot in slots))
         end = max(slot.end for slot in slots)
-        for _, present, used in _timeline(slots, start, end, gap):
+        for _, present, used in occupancy_timeline(slots, start, end, gap):
             if used > length:
                 affected.extend(slot.booking for slot in present if slot.booking not in affected)
     return sorted(affected, key=lambda b: (b.row.display_order, b.start_date, b.position))
