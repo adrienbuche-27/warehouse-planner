@@ -1,7 +1,7 @@
 """Fill the database with demo data: rows, clients, vehicles and bookings.
 
     python manage.py seed_demo            # empty database only
-    python manage.py seed_demo --reset    # first delete rows, clients, vehicles, bookings
+    python manage.py seed_demo --reset    # first delete all demo data, invoices included
 
 Refuses to run when DEBUG is off (production) unless --force is given.
 """
@@ -13,11 +13,12 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from clients.models import Client, ClientType, Vehicle
 from core.models import AppSettings
+from invoicing.models import CreditNote, Invoice, NumberSequence
 from storage import services
 from storage.models import Booking, BookingStatus, Row
 
@@ -59,7 +60,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--reset",
             action="store_true",
-            help="Delete all rows, clients, vehicles and bookings first.",
+            help="Delete all rows, clients, vehicles, bookings and invoices first.",
         )
 
     def handle(self, *args, force=False, reset=False, **options):
@@ -73,13 +74,16 @@ class Command(BaseCommand):
                 "La base contient déjà des données. Utilisez --reset pour les remplacer."
             )
 
+        if reset and not settings.DEBUG and Invoice.objects.exclude(number=None).exists():
+            raise CommandError(
+                "Des factures émises existent : --reset les supprimerait. "
+                "Refusé en production, même avec --force."
+            )
+
         rng = random.Random(42)  # same demo data every time
         with transaction.atomic():
             if reset:
-                Booking.objects.all().delete()
-                Vehicle.objects.all().delete()
-                Client.objects.all().delete()
-                Row.objects.all().delete()
+                self._delete_all()
             self._settings()
             services.create_rows(40)
             clients = self._clients(rng, 60)
@@ -93,20 +97,39 @@ class Command(BaseCommand):
             )
         )
 
+    def _delete_all(self):
+        """Wipe the demo data. Issued invoices normally can never be deleted; this bypasses
+        that protection on purpose, which is why it is refused in production (see handle)."""
+        for model in (CreditNote, Invoice):
+            for document in model.objects.exclude(pdf_file=""):
+                document.pdf_file.delete(save=False)
+            models.QuerySet.delete(model.objects.all())
+        NumberSequence.objects.all().delete()
+        Booking.objects.all().delete()
+        Vehicle.objects.all().delete()
+        Client.objects.all().delete()
+        Row.objects.all().delete()
+
     def _settings(self):
         app_settings = AppSettings.load()
         if app_settings.price_per_period is None:
             app_settings.price_per_period = Decimal("45.00")
-        if not app_settings.company_name:
-            app_settings.company_name = "Stockage Démo SRL"
-            app_settings.company_legal_form = "SRL"
-            app_settings.company_address = "Rue de la Gare 1\n6700 Arlon"
-            app_settings.company_vat_number = "BE0123456749"
-            app_settings.company_bce_number = "0123456749"
-            app_settings.company_iban = "BE68539007547034"
-            app_settings.company_bic = "GKCCBEBB"
-            app_settings.company_email = "contact@stockage-demo.be"
-            app_settings.company_phone = "063 12 34 56"
+        demo_company = {
+            "company_name": "Stockage Démo",
+            "company_legal_form": "SRL",
+            "company_address": "Rue de la Gare 1\n6700 Arlon",
+            "company_vat_number": "BE0123456749",
+            "company_bce_number": "0123456749",
+            "company_rpm": "RPM Liège, division Arlon",
+            "company_iban": "BE68539007547034",
+            "company_bic": "GKCCBEBB",
+            "company_email": "contact@stockage-demo.be",
+            "company_phone": "063 12 34 56",
+        }
+        # Only fill what is still empty: never overwrite real company details.
+        for field, value in demo_company.items():
+            if not getattr(app_settings, field):
+                setattr(app_settings, field, value)
         app_settings.save()
 
     def _clients(self, rng, count):
