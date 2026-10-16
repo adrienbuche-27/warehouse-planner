@@ -51,3 +51,11 @@ def test_dates_accept_french_and_iso_input():
         input_formats = formats.get_format("DATE_INPUT_FORMATS")
     assert "%d/%m/%Y" in input_formats
     assert "%Y-%m-%d" in input_formats
+
+
+def test_format_metres():
+    from core.formatting import format_metres
+
+    assert format_metres(Decimal("16")) == f"16,00{NBSP}m"
+    assert format_metres(Decimal("7.995")) == f"8,00{NBSP}m"
+    assert format_metres(None) == ""

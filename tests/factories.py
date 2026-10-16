@@ -44,3 +44,40 @@ def make_vehicle(client=None, **fields) -> Vehicle:
     }
     values.update(fields)
     return Vehicle.objects.create(**values)
+
+
+def set_settings(**values):
+    """Update the AppSettings singleton (e.g. set_settings(vehicle_gap_m=Decimal("0")))."""
+    from core.models import AppSettings
+
+    app_settings = AppSettings.load()
+    for name, value in values.items():
+        setattr(app_settings, name, value)
+    app_settings.save()
+    return app_settings
+
+
+def make_row(code=None, **fields):
+    from storage.models import Row
+
+    n = next(_counter)
+    return Row.objects.create(
+        code=code or f"T{n:03d}", display_order=fields.pop("display_order", n), **fields
+    )
+
+
+def make_booking(row, position, start, periods=1, vehicle=None, length=None, **fields):
+    """Booking in `row` at `position` from `start` (a date) for `periods` periods.
+
+    A price is set in the settings if none exists yet. `length` creates a vehicle of that length.
+    """
+    from core.models import AppSettings
+    from storage.models import Booking
+
+    if AppSettings.load().price_per_period is None:
+        set_settings(price_per_period=Decimal("45.00"))
+    if vehicle is None:
+        vehicle = make_vehicle(length_m=Decimal(str(length or "7.00")))
+    return Booking.objects.create(
+        vehicle=vehicle, row=row, position=position, start_date=start, periods=periods, **fields
+    )

@@ -76,7 +76,7 @@ def test_row_inline_edit_form(admin_client):
     response = admin_client.get(reverse("storage:row_edit", args=[row.pk]))
     assert response.status_code == 200
     content = response.content.decode()
-    assert content.strip().startswith('<tr id="row-')
+    assert content.strip().startswith('<tbody id="row-')
     assert 'name="length_override_m"' in content
 
 
