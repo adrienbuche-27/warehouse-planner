@@ -387,3 +387,40 @@ table.lines-edit td:first-child { min-width: 22rem; }
 .payment-form button { width: auto; }
 button.small { width: auto; }
 fieldset[role="group"] button { white-space: nowrap; }
+
+/* Dashboard */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--pico-spacing);
+  margin-bottom: var(--pico-spacing);
+}
+.kpi { margin: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.kpi small { color: var(--pico-muted-color); }
+.kpi strong { font-size: 1.8rem; line-height: 1.2; }
+.kpi span { font-size: 0.85rem; color: var(--pico-muted-color); }
+.kpi-alert { border-left: 4px solid var(--app-danger); }
+.dashboard-lists, .dashboard-charts { align-items: start; }
+.dashboard-lists h2, .dashboard-charts h2 { font-size: 1.15rem; margin-bottom: 0.2rem; }
+table.compact { font-size: 0.875rem; }
+table.compact th, table.compact td { padding: 0.35rem 0.5rem; white-space: nowrap; }
+table.compact td.wrap { white-space: normal; }
+a.blocking-icon { text-decoration: none; white-space: nowrap; }
+
+/* Bar charts (core/charts.py): one series, palette slot 1 (validated vs the white surface) */
+.bar-chart {
+  --series-1: #2a78d6;
+  width: 100%;
+  height: auto;
+  font-size: 14px;
+  overflow: visible;
+}
+.bar-chart .grid line { stroke: #e6e6e3; stroke-width: 1; }
+.bar-chart .baseline { stroke: #b8b7b2; stroke-width: 1; }
+.bar-chart .reference { stroke: #8a8984; stroke-width: 1; stroke-dasharray: 4 3; }
+.bar-chart text { fill: #52514e; }
+.bar-chart .bar path { fill: var(--series-1); }
+.bar-chart .bar .hit { fill: transparent; }
+.bar-chart .bar:hover path { fill: #1f63b5; }
+.bar-chart .bar:hover .hit { fill: rgba(42, 120, 214, 0.06); }
+.dashboard-charts details { margin-top: 0.5rem; font-size: 0.875rem; }
