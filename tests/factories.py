@@ -49,6 +49,14 @@ def make_vehicle(client=None, **fields) -> Vehicle:
     return Vehicle.objects.create(**values)
 
 
+# One band longer than any vehicle: 45,00 € per period whatever the length. Used by the tests
+# that are not about pricing per band, so their amounts stay simple.
+FLAT_PRICE = {"price_per_band": Decimal("45.00"), "band_length_m": Decimal("20.00")}
+
+# The usual business setting: 12,00 € per started band of 2 m, per period.
+BANDS_2M_12EUR = {"price_per_band": Decimal("12.00"), "band_length_m": Decimal("2.00")}
+
+
 def set_settings(**values):
     """Update the AppSettings singleton (e.g. set_settings(vehicle_gap_m=Decimal("0")))."""
     from core.models import AppSettings
@@ -77,8 +85,8 @@ def make_booking(row, position, start, periods=1, vehicle=None, length=None, **f
     from core.models import AppSettings
     from storage.models import Booking
 
-    if AppSettings.load().price_per_period is None:
-        set_settings(price_per_period=Decimal("45.00"))
+    if AppSettings.load().price_per_band is None:
+        set_settings(**FLAT_PRICE)
     if vehicle is None:
         vehicle = make_vehicle(length_m=Decimal(str(length or "7.00")))
     return Booking.objects.create(

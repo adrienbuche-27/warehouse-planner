@@ -116,8 +116,8 @@ class Command(BaseCommand):
 
     def _settings(self):
         app_settings = AppSettings.load()
-        if app_settings.price_per_period is None:
-            app_settings.price_per_period = Decimal("45.00")
+        if app_settings.price_per_band is None:
+            app_settings.price_per_band = Decimal("12.00")  # per 2 m band and per period
         demo_values = {
             "company_name": "Stockage Démo",
             "company_legal_form": "SRL",

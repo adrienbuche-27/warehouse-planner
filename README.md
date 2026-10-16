@@ -130,7 +130,13 @@ or templates, so it can be unit-tested.
     boxed in (closest to the aisle first, put back in reverse order);
   - `suggest_placements()` ranks rows and positions: fewest blocking situations, then the
     tightest fit, then the row order.
-  The booking keeps the price and VAT of the day it was created. "Prolonger" keeps that price.
+  Pricing is per length band (`core/pricing.py`): price per period = bands × price per band,
+  a started band counting in full (7,40 m with 2 m bands = 4 bands). The booking keeps the band
+  size, band price and VAT of the day it was created. The number of bands follows the vehicle
+  length until the booking is invoiced: `storage.services.refresh_price()` runs when a vehicle
+  length or a booking's vehicle is changed, and before the first invoice of a booking. Once
+  invoiced, the price stays (correct with a credit note and a new invoice). "Prolonger" keeps
+  the price. Bookings made before pricing per band keep their flat price.
 - **Planning** (`/planning/`, logic in `storage/planning.py`) shows 13 windows of 2 weeks from
   the Monday of the current week. Each cell is the peak occupancy of the row in that window
   (green below 70 %, orange 70–95 %, red above 95 %) with ⚠ when a vehicle of the row is boxed

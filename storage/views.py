@@ -13,7 +13,6 @@ from django.views.decorators.http import require_POST
 from clients.models import Client, Vehicle
 from core.forms import BulkRowCreateForm
 from core.models import AppSettings
-from core.pricing import compute_totals
 from invoicing import services as invoicing_services
 from storage import planning as planning_module
 from storage import services
@@ -154,27 +153,11 @@ def booking_list(request):
     return render(request, template, context)
 
 
-def _price_preview(periods, booking=None):
-    """Totals shown live in the booking form: the booking's own prices, or today's settings."""
-    if booking is not None and booking.pk:
-        price, regime, rate = booking.price_per_period, booking.vat_regime, booking.vat_rate
-    else:
-        app_settings = AppSettings.load()
-        price, regime, rate = (
-            app_settings.price_per_period,
-            app_settings.vat_regime,
-            app_settings.vat_rate,
-        )
-    if price is None or not periods:
-        return None
-    return compute_totals(periods, price, regime, rate)
-
-
 def _booking_form_page(request, form, booking=None):
     context = {
         "form": form,
         "booking": booking,
-        "price_missing": AppSettings.load().price_per_period is None,
+        "price_missing": AppSettings.load().price_per_band is None,
     }
     return render(request, "storage/booking_form.html", context)
 
@@ -213,6 +196,10 @@ def booking_edit(request, pk):
     if form.is_valid():
         form.save()
         messages.success(request, "Réservation enregistrée.")
+        # Another vehicle may have another length, hence another number of bands.
+        if change := services.refresh_price(booking):
+            level = messages.INFO if change.applied else messages.WARNING
+            messages.add_message(request, level, change.as_text())
         return redirect("storage:booking_detail", pk=booking.pk)
     return _booking_form_page(request, form, booking)
 
@@ -293,25 +280,43 @@ def booking_vehicle_options(request):
     if client_id.isdigit():
         vehicles = Vehicle.objects.filter(client_id=client_id, is_archived=False)
     selected = request.GET.get("selected", "")
-    return render(
+    response = render(
         request,
         "storage/_vehicle_select.html",
         {"vehicles": vehicles, "selected": selected, "client_id": client_id},
     )
+    return _vehicle_selected(response)
+
+
+def _vehicle_selected(response):
+    """Tell the booking form that the vehicle dropdown changed, so the price is recomputed
+    (the price depends on the vehicle length). "After settle": once the new dropdown is in
+    the page, so the price is computed for the newly selected vehicle."""
+    response["HX-Trigger-After-Settle"] = "vehicle-selected"
+    return response
 
 
 def booking_summary(request):
-    """End date and prices (HT / TVA / TTC), recomputed while the form is filled."""
+    """End date and prices (bands, HT / TVA / TTC), recomputed while the form is filled."""
     start = _parse_date(request.GET.get("start_date"))
     periods = request.GET.get("periods", "")
     periods = int(periods) if periods.isdigit() and 0 < int(periods) <= 100 else None
     booking = None
     if request.GET.get("booking", "").isdigit():
         booking = Booking.objects.filter(pk=request.GET["booking"]).first()
+    vehicle = None
+    if request.GET.get("vehicle", "").isdigit():
+        vehicle = Vehicle.objects.filter(pk=request.GET["vehicle"]).first()
     end = None
     if start and periods:
         end = compute_end_date(start, periods, AppSettings.load().period_days)
-    context = {"end": end, "periods": periods, "totals": _price_preview(periods, booking)}
+    context = {
+        "end": end,
+        "periods": periods,
+        "vehicle": vehicle,
+        "price": services.price_preview(vehicle, periods, booking),
+        "price_missing": AppSettings.load().price_per_band is None,
+    }
     return render(request, "storage/_booking_summary.html", context)
 
 
@@ -347,7 +352,7 @@ def booking_quick_client(request):
                 "new_client": client,
                 "vehicle_form": QuickVehicleForm(),
             }
-            return render(request, "storage/_client_select.html", context)
+            return _vehicle_selected(render(request, "storage/_client_select.html", context))
         response = render(request, "storage/_quick_client_form.html", {"form": form})
         response["HX-Retarget"] = "#quick-client"
         return response
@@ -373,7 +378,7 @@ def booking_quick_vehicle(request):
                 "client_id": client.pk,
                 "close_quick_form": True,
             }
-            return render(request, "storage/_vehicle_select.html", context)
+            return _vehicle_selected(render(request, "storage/_vehicle_select.html", context))
         response = render(
             request, "storage/_quick_vehicle_form.html", {"form": form, "client": client}
         )

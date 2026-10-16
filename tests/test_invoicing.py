@@ -18,7 +18,9 @@ from invoicing.models import (
     IssuedDocumentError,
     NumberSequence,
 )
+from storage.models import Booking
 from tests.factories import (
+    FLAT_PRICE,
     make_booking,
     make_business,
     make_client,
@@ -49,7 +51,7 @@ COMPANY = {
 @pytest.fixture(autouse=True)
 def company(settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path
-    set_settings(price_per_period=Decimal("45.00"), vat_rate=Decimal("21.00"), **COMPANY)
+    set_settings(**FLAT_PRICE, vat_rate=Decimal("21.00"), **COMPANY)
 
 
 def booking_invoice(periods=2, client=None, plate=None):
@@ -85,24 +87,46 @@ def test_structured_references_are_always_valid(value):
 
 
 def test_invoice_from_booking_has_one_line_per_spec():
-    invoice = booking_invoice(periods=2, plate="AB-123-CD")
+    set_settings(price_per_band=Decimal("12.00"), band_length_m=Decimal("2.00"))
+    vehicle = make_vehicle(plate="AB-123-CD", length_m=Decimal("7.40"))
+    booking = make_booking(make_row(), 1, MAR_1, periods=3, vehicle=vehicle)
+    invoice = services.create_invoice_for_booking(booking)
     line = invoice.lines.get()
     assert line.description == (
-        "Stockage camping-car AB-123-CD – du 01/03/2027 au 28/03/2027 – 2 période(s) de 14 jours"
+        "Stockage camping-car AB-123-CD – 7,40\u00a0m, soit 4\u00a0tranches de 2\u00a0m × "
+        "12,00\u00a0€ – du 01/03/2027 au 11/04/2027 – 3 périodes de 14 jours"
     )
-    assert (line.service_start, line.service_end) == (MAR_1, D(2027, 3, 28))
+    assert (line.service_start, line.service_end) == (MAR_1, D(2027, 4, 11))
+    # Quantity = periods; unit price = 4 bands × 12,00 € per period.
     assert (line.quantity, line.unit_price_excl_vat, line.line_total_excl_vat) == (
-        2,
-        Decimal("45.00"),
-        Decimal("90.00"),
+        3,
+        Decimal("48.00"),
+        Decimal("144.00"),
     )
     assert (invoice.total_excl_vat, invoice.total_vat, invoice.total_incl_vat) == (
-        Decimal("90.00"),
-        Decimal("18.90"),
-        Decimal("108.90"),
+        Decimal("144.00"),
+        Decimal("30.24"),
+        Decimal("174.24"),
     )
     assert invoice.number is None
     assert invoice.status == InvoiceStatus.DRAFT
+
+
+def test_line_description_singular_and_flat_price():
+    set_settings(price_per_band=Decimal("12.00"), band_length_m=Decimal("2.00"))
+    vehicle = make_vehicle(plate="AB-123-CD", length_m=Decimal("1.50"))
+    booking = make_booking(make_row(), 1, MAR_1, periods=1, vehicle=vehicle)
+    description = services.create_invoice_for_booking(booking).lines.get().description
+    assert "soit 1\u00a0tranche de 2\u00a0m" in description
+    assert "– 1 période de 14 jours" in description
+
+    # A booking created before pricing per band keeps its flat price and the short wording.
+    old = make_booking(make_row(), 1, MAR_1, periods=2)
+    Booking.objects.filter(pk=old.pk).update(band_length_m=None, price_per_band=None)
+    old.refresh_from_db()
+    line = services.create_invoice_for_booking(old).lines.get()
+    assert line.description.startswith(f"Stockage camping-car {old.vehicle.plate} – du 01/03")
+    assert line.unit_price_excl_vat == old.price_per_period
 
 
 def test_booking_cannot_be_invoiced_twice_but_extension_can():

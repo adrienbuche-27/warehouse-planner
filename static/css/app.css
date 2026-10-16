@@ -55,6 +55,7 @@
 .message-success { border-left: 4px solid var(--app-ok); }
 .message-warning { border-left: 4px solid var(--app-warn); }
 .message-error { border-left: 4px solid var(--app-danger); }
+.message-info { border-left: 4px solid #1565c0; }
 .error { color: var(--app-danger); }
 
 .empty-state {

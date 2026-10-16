@@ -8,7 +8,7 @@ from django.urls import reverse
 
 from storage import planning
 from storage.models import BookingStatus
-from tests.factories import make_booking, make_row, make_vehicle, set_settings
+from tests.factories import FLAT_PRICE, make_booking, make_row, make_vehicle, set_settings
 
 pytestmark = pytest.mark.django_db
 
@@ -19,7 +19,7 @@ MON = D(2027, 3, 1)  # a Monday
 @pytest.fixture(autouse=True)
 def demo_settings():
     set_settings(
-        price_per_period=Decimal("45.00"),
+        **FLAT_PRICE,
         default_row_length_m=Decimal("16.00"),
         vehicle_gap_m=Decimal("0.50"),
     )

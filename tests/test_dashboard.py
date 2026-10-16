@@ -11,7 +11,7 @@ from invoicing import services as invoicing
 from reminders import services as reminders
 from reminders.models import ReminderKind, ReminderLog
 from storage.models import BookingStatus
-from tests.factories import make_booking, make_row, make_vehicle, set_settings
+from tests.factories import FLAT_PRICE, make_booking, make_row, make_vehicle, set_settings
 from tests.test_invoicing import COMPANY
 
 pytestmark = pytest.mark.django_db
@@ -24,7 +24,7 @@ TODAY = D(2027, 3, 10)  # a Wednesday
 def demo_settings(settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path
     set_settings(
-        price_per_period=Decimal("45.00"),
+        **FLAT_PRICE,
         default_row_length_m=Decimal("16.00"),
         vehicle_gap_m=Decimal("0.50"),
         admin_notification_emails="admin@stockage.be",

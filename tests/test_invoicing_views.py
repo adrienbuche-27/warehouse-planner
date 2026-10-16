@@ -8,7 +8,14 @@ from django.urls import reverse
 
 from invoicing import services
 from invoicing.models import CreditNote, Invoice, InvoiceStatus
-from tests.factories import make_booking, make_client, make_row, make_vehicle, set_settings
+from tests.factories import (
+    FLAT_PRICE,
+    make_booking,
+    make_client,
+    make_row,
+    make_vehicle,
+    set_settings,
+)
 from tests.test_invoicing import COMPANY
 
 pytestmark = pytest.mark.django_db
@@ -19,7 +26,7 @@ MAR_1 = datetime.date(2027, 3, 1)
 @pytest.fixture(autouse=True)
 def company(settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path
-    set_settings(price_per_period=Decimal("45.00"), **COMPANY)
+    set_settings(**FLAT_PRICE, **COMPANY)
 
 
 def make_invoice(issued=False, periods=2, client=None, issue_date=None):

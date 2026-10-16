@@ -16,6 +16,7 @@ from django.db.models import Sum
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from core.formatting import NBSP, format_metres, format_metres_short, format_money
 from core.models import AppSettings
 from core.pricing import compute_vat
 from invoicing.models import (
@@ -27,6 +28,7 @@ from invoicing.models import (
     InvoiceStatus,
     NumberSequence,
 )
+from storage import services as storage_services
 from storage.models import Booking
 
 logger = logging.getLogger(__name__)
@@ -115,9 +117,19 @@ def uninvoiced_periods(booking: Booking) -> int:
 
 
 def booking_line_description(booking: Booking, start, end, periods: int, period_days: int) -> str:
+    """E.g. "Stockage camping-car AB-123-CD – 7,40 m, soit 4 tranches de 2 m × 12,00 € –
+    du 01/03/2027 au 11/04/2027 – 3 périodes de 14 jours"."""
+    pricing = ""
+    if booking.priced_per_band:
+        bands = booking.band_count
+        band = format_metres_short(booking.band_length_m) + NBSP + "m"
+        pricing = (
+            f" – {format_metres(booking.billed_length_m)}, soit {bands}{NBSP}"
+            f"tranche{'s' if bands > 1 else ''} de {band} × {format_money(booking.price_per_band)}"
+        )
     return (
-        f"Stockage camping-car {booking.vehicle.plate} – du {start:%d/%m/%Y} au "
-        f"{end:%d/%m/%Y} – {periods} période(s) de {period_days} jours"
+        f"Stockage camping-car {booking.vehicle.plate}{pricing} – du {start:%d/%m/%Y} au "
+        f"{end:%d/%m/%Y} – {periods} période{'s' if periods > 1 else ''} de {period_days} jours"
     )
 
 
@@ -131,6 +143,8 @@ def create_invoice_for_booking(booking: Booking) -> Invoice:
     periods = uninvoiced_periods(booking)
     if periods == 0:
         raise InvoicingError("Toutes les périodes de cette réservation sont déjà facturées.")
+    # First invoice (or again after a credit note): the price follows the current length.
+    storage_services.refresh_price(booking)
     period_days = AppSettings.load().period_days
     already = booking.periods - periods
     start = booking.start_date + datetime.timedelta(days=already * period_days)

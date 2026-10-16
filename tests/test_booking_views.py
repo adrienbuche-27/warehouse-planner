@@ -12,7 +12,14 @@ from core.forms import AppSettingsForm
 from core.models import AppSettings
 from storage import services
 from storage.models import Booking, BookingStatus
-from tests.factories import make_booking, make_client, make_row, make_vehicle, set_settings
+from tests.factories import (
+    FLAT_PRICE,
+    make_booking,
+    make_client,
+    make_row,
+    make_vehicle,
+    set_settings,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -22,7 +29,7 @@ MAR_1 = datetime.date(2027, 3, 1)
 @pytest.fixture(autouse=True)
 def demo_settings():
     set_settings(
-        price_per_period=Decimal("45.00"),
+        **FLAT_PRICE,
         default_row_length_m=Decimal("16.00"),
         vehicle_gap_m=Decimal("0.50"),
     )
@@ -155,9 +162,9 @@ def test_create_form_prefill_from_planning_and_vehicle(admin_client):
 
 
 def test_create_form_warns_when_price_missing(admin_client):
-    set_settings(price_per_period=None)
+    set_settings(price_per_band=None)
     content = admin_client.get(reverse("storage:booking_create")).content.decode()
-    assert "Le prix par période n'est pas encore défini" in content
+    assert "Le prix par tranche n'est pas encore défini" in content
 
 
 def test_edit_booking_excludes_itself_from_fit_check(admin_client):
@@ -193,12 +200,22 @@ def test_vehicle_options_for_client(admin_client):
 
 
 def test_summary_shows_end_date_and_prices(admin_client):
-    response = admin_client.get(
-        reverse("storage:booking_summary"), {"start_date": "2027-03-01", "periods": "3"}
-    )
-    content = response.content.decode()
+    set_settings(price_per_band=Decimal("12.00"), band_length_m=Decimal("2.00"))
+    vehicle = make_vehicle(length_m=Decimal("7.40"))
+    url = reverse("storage:booking_summary")
+    params = {"start_date": "2027-03-01", "periods": "3", "vehicle": vehicle.pk}
+    content = admin_client.get(url, params).content.decode()
     assert "11/04/2027" in content
-    assert "135,00" in content and "28,35" in content and "163,35" in content
+    assert "4 × 2" in content and "7,40" in content  # 4 bands of 2 m
+    assert "48,00" in content  # per period: 4 × 12,00 €
+    assert "144,00" in content and "30,24" in content and "174,24" in content
+
+
+def test_summary_without_vehicle_asks_for_it(admin_client):
+    params = {"start_date": "2027-03-01", "periods": "3"}
+    content = admin_client.get(reverse("storage:booking_summary"), params).content.decode()
+    assert "11/04/2027" in content
+    assert "choisissez le véhicule pour voir le prix" in content
 
 
 def test_suggestions_endpoint_lists_best_rows(admin_client):

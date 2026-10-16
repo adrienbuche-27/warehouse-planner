@@ -10,6 +10,7 @@ from clients.forms import ClientForm, VehicleForm
 from clients.models import Client, ClientType, Vehicle
 from core.services import protected_objects
 from invoicing.services import outstanding_balance
+from storage import services as storage_services
 from storage.models import Booking
 
 PAGE_SIZE = 50
@@ -148,6 +149,10 @@ def vehicle_edit(request, pk):
     if form.is_valid():
         form.save()
         messages.success(request, "Véhicule enregistré.")
+        # The price depends on the length: recalculate the bookings not invoiced yet.
+        for change in storage_services.refresh_vehicle_prices(vehicle):
+            level = messages.INFO if change.applied else messages.WARNING
+            messages.add_message(request, level, change.as_text())
         return redirect("clients:vehicle_detail", pk=vehicle.pk)
     return render(request, "clients/vehicle_form.html", {"form": form, "vehicle": vehicle})
 

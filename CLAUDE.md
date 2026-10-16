@@ -89,7 +89,8 @@ Only one row may exist. Enforce this in `save()` and expose it through `AppSetti
 | `default_row_length_m` | Decimal | 16.00 | Used when a row has no override |
 | `vehicle_gap_m` | Decimal | 0.50 | Safety gap between two vehicles in a row |
 | `period_days` | Int | 14 | Length of a billing period. Keep at 14; exposed for clarity, not meant to change often |
-| `price_per_period` | Decimal | — | Price **excluding VAT** for one period |
+| `band_length_m` | Decimal | 2.00 | Size of a length band. The price depends on the vehicle length, per band |
+| `price_per_band` | Decimal | — | Price **excluding VAT** of one band for one period |
 | `vat_regime` | Choice | `standard` | `standard` (VAT applies) or `franchise` (small-business exemption) |
 | `vat_rate` | Decimal | 21.00 | Percentage, used when `vat_regime = standard` |
 | `reminder_days_before_end` | Int | 14 | |
@@ -165,7 +166,9 @@ Provide a "Créer N rangées" action on the settings page to bulk-create rows R0
 | `end_date` | Date | **Computed and stored**: `start_date + periods × period_days − 1 day` (inclusive) |
 | `status` | Choice | `reserved` (réservée), `stored` (en stock), `ended` (terminée), `cancelled` (annulée) |
 | `actual_check_in`, `actual_check_out` | Date, nullable | Set when status changes |
-| `price_per_period` | Decimal | **Snapshot** of the setting at creation |
+| `band_length_m`, `price_per_band` | Decimal | **Snapshot** of the settings at creation |
+| `billed_length_m`, `band_count` | | Vehicle length used and number of bands: `ceil(length / band_length_m)`, a started band counts in full, no minimum |
+| `price_per_period` | Decimal | **Computed and stored**: `band_count × price_per_band` |
 | `vat_regime`, `vat_rate` | | **Snapshot** at creation |
 | `notes` | Text | |
 | `created_at`, `updated_at` | | |
@@ -245,7 +248,8 @@ Guiding principle: vehicles leaving **later** should sit **deeper** (higher posi
 
 ### 6.4 Pricing
 
-- At booking creation: copy `price_per_period`, `vat_regime`, `vat_rate` from `AppSettings` into the booking.
+- At booking creation: copy `band_length_m`, `price_per_band`, `vat_regime`, `vat_rate` from `AppSettings` into the booking, and compute the bands from the vehicle length (7,40 m with 2 m bands = 4 bands).
+- The band count follows the vehicle length while the booking is not invoiced: correcting a vehicle's length (or the booking's vehicle) recalculates its uninvoiced bookings, with a message. Invoiced bookings (a draft counts) keep their price; the message suggests recreating the draft, or a credit note and a new invoice. The price is also recalculated when the first invoice of a booking is created.
 - Changing settings later never alters existing bookings or invoices. Show a notice on the settings page saying so.
 - Rounding: compute per line, round VAT to 2 decimals with `ROUND_HALF_UP`.
 
@@ -290,7 +294,7 @@ Navigation bar: **Tableau de bord · Planning · Réservations · Clients · Vé
 ### 7.5 Factures
 
 - List with filters: status, client, period, overdue only. Totals for the filtered selection.
-- From a booking: "Créer la facture" makes a draft with one line ("Stockage camping-car [plaque] – du [début] au [fin] – N période(s) de 14 jours"). Drafts are editable.
+- From a booking: "Créer la facture" makes a draft with one line ("Stockage camping-car AB-123-CD – 7,40 m, soit 4 tranches de 2 m × 12,00 € – du 01/03/2027 au 11/04/2027 – 3 périodes de 14 jours"; quantity = periods, unit price = bands × price per band). Drafts are editable.
 - "Émettre" assigns the number, snapshots data, generates and stores the PDF. After that the invoice is **read-only**.
 - "Marquer payée" records date, method (virement, espèces, autre) and note. "Annuler le paiement" is allowed (it is a tracking field, not accounting).
 - "Créer une note de crédit" (from an issued invoice).

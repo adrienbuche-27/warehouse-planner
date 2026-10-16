@@ -10,7 +10,7 @@
 
 {% if price_missing and not booking %}
   <article class="notice">
-    Le prix par période n'est pas encore défini : renseignez-le dans les
+    Le prix par tranche n'est pas encore défini : renseignez-le dans les
     <a href="{% url 'core:settings' %}#tarifs-tva">Paramètres</a> avant de créer une réservation.
   </article>
 {% endif %}
@@ -45,8 +45,9 @@
     <header><h2>Dates</h2></header>
     <div class="field-grid"
          hx-get="{% url 'storage:booking_summary' %}" hx-target="#summary"
-         hx-trigger="load, change from:#id_start_date, input delay:300ms from:#id_periods"
-         hx-include="#id_start_date, #id_periods, #booking-id">
+         hx-trigger="load, change from:#id_start_date, input delay:300ms from:#id_periods,
+                     change[target.id=='id_vehicle'] from:body, vehicle-selected from:body"
+         hx-include="#id_start_date, #id_periods, #id_vehicle, #booking-id">
       <div>{% include "includes/field.html" with field=form.start_date %}</div>
       <div>{% include "includes/field.html" with field=form.periods %}</div>
     </div>

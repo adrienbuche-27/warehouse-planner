@@ -21,4 +21,13 @@ class BookingAdmin(admin.ModelAdmin):
     ]
     date_hierarchy = "start_date"
     autocomplete_fields = ["vehicle"]
-    readonly_fields = ["end_date", "price_per_period", "vat_regime", "vat_rate"]
+    readonly_fields = [
+        "end_date",
+        "band_length_m",
+        "price_per_band",
+        "billed_length_m",
+        "band_count",
+        "price_per_period",
+        "vat_regime",
+        "vat_rate",
+    ]
