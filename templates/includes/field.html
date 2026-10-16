@@ -1,0 +1,19 @@
+{# Renders one form field with Pico.css markup: label, input, help text and errors. #}
+{% if field.name == "company_logo" %}
+  <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+  {% if field.value %}
+    <div class="logo-preview">
+      <img src="{% url 'core:settings_logo' %}" alt="Logo actuel">
+      <label><input type="checkbox" name="{{ field.html_name }}-clear"> Supprimer le logo</label>
+    </div>
+  {% endif %}
+  <input type="file" name="{{ field.html_name }}" id="{{ field.id_for_label }}" accept="image/*"
+         {% if field.errors %}aria-invalid="true"{% endif %}>
+{% elif field.widget_type == "checkbox" %}
+  <label>{{ field }} {{ field.label }}</label>
+{% else %}
+  <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+  {{ field }}
+{% endif %}
+{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+{% for error in field.errors %}<small class="error">{{ error }}</small>{% endfor %}

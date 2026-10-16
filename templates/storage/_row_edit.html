@@ -1,0 +1,29 @@
+{# Inline edit: the inputs live in the table cells; the buttons send them with hx-include. #}
+<tr id="row-{{ row.pk }}" class="editing">
+  <td>
+    {{ form.code }}
+    {% for error in form.code.errors %}<small class="error">{{ error }}</small>{% endfor %}
+  </td>
+  <td>
+    {{ form.display_order }}
+    {% for error in form.display_order.errors %}<small class="error">{{ error }}</small>{% endfor %}
+  </td>
+  <td>
+    {{ form.length_override_m }}
+    {% for error in form.length_override_m.errors %}<small class="error">{{ error }}</small>{% endfor %}
+  </td>
+  <td><span class="muted">—</span></td>
+  <td>
+    {{ form.is_active }}
+    {% for error in form.is_active.errors %}<small class="error">{{ error }}</small>{% endfor %}
+  </td>
+  <td>{{ form.notes }}</td>
+  <td class="actions">
+    <button type="button" class="small"
+            hx-post="{% url 'storage:row_edit' row.pk %}" hx-include="closest tr"
+            hx-target="closest tr" hx-swap="outerHTML">Enregistrer</button>
+    <button type="button" class="secondary outline small"
+            hx-get="{% url 'storage:row_display' row.pk %}"
+            hx-target="closest tr" hx-swap="outerHTML">Annuler</button>
+  </td>
+</tr>

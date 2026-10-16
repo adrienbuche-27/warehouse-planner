@@ -60,3 +60,76 @@
   text-align: center;
   color: var(--pico-muted-color);
 }
+
+/* Forms laid out in columns; long fields span the full width */
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  column-gap: var(--pico-grid-column-gap);
+}
+.field-wide {
+  grid-column: 1 / -1;
+}
+.field-grid small.error {
+  display: block;
+  margin-top: -0.5rem;
+  margin-bottom: var(--pico-spacing);
+}
+
+/* In-page table of contents (Paramètres) */
+.page-toc ul {
+  flex-wrap: wrap;
+}
+.page-toc a {
+  font-size: 0.9rem;
+}
+
+.notice {
+  border-left: 4px solid var(--app-warn);
+}
+
+.logo-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--pico-spacing);
+  margin-bottom: 0.5rem;
+}
+.logo-preview img {
+  max-height: 4rem;
+  max-width: 12rem;
+}
+
+/* Rows table with inline editing */
+.bulk-create {
+  max-width: 32rem;
+}
+.bulk-create button {
+  white-space: nowrap;
+}
+.rows-table input:not([type="checkbox"]) {
+  margin-bottom: 0;
+  padding: 0.3rem 0.5rem;
+  height: auto;
+}
+.rows-table .actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.rows-table tr.editing td {
+  vertical-align: top;
+}
+button.small {
+  padding: 0.25rem 0.7rem;
+  font-size: 0.85rem;
+  margin: 0 0 0 0.25rem;
+}
+.muted {
+  color: var(--pico-muted-color);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

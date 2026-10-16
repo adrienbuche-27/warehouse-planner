@@ -12,7 +12,6 @@
 {# HTMX requests send the CSRF token automatically thanks to hx-headers. #}
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   {% if user.is_authenticated %}
-  {% with section=request.resolver_match.app_name %}
   <header class="container-fluid site-header">
     <nav>
       <ul>
@@ -22,14 +21,14 @@
         </a></li>
       </ul>
       <ul class="main-nav">
-        <li><a href="{% url 'core:dashboard' %}" {% if section == 'core' %}aria-current="page"{% endif %}>Tableau de bord</a></li>
+        <li><a href="{% url 'core:dashboard' %}" {% if nav_section == 'dashboard' %}aria-current="page"{% endif %}>Tableau de bord</a></li>
         {# Sections without a link yet are built in later milestones (see CLAUDE.md, section 12). #}
         <li><a aria-disabled="true" title="Disponible prochainement">Planning</a></li>
         <li><a aria-disabled="true" title="Disponible prochainement">Réservations</a></li>
         <li><a aria-disabled="true" title="Disponible prochainement">Clients</a></li>
         <li><a aria-disabled="true" title="Disponible prochainement">Véhicules</a></li>
         <li><a aria-disabled="true" title="Disponible prochainement">Factures</a></li>
-        <li><a aria-disabled="true" title="Disponible prochainement">Paramètres</a></li>
+        <li><a href="{% url 'core:settings' %}" {% if nav_section == 'settings' %}aria-current="page"{% endif %}>Paramètres</a></li>
       </ul>
       <ul>
         <li><small>{{ user.get_full_name|default:user.username }}</small></li>
@@ -42,7 +41,6 @@
       </ul>
     </nav>
   </header>
-  {% endwith %}
   {% endif %}
 
   <main class="container">

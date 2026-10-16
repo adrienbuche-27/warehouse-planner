@@ -13,4 +13,5 @@ urlpatterns = [
     # templates in templates/registration/.
     path("compte/", include("django.contrib.auth.urls")),
     path("", include("core.urls")),
+    path("", include("storage.urls")),
 ]

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block title %}Paramètres{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>Paramètres</h1>
+  <p>Entrepôt, tarifs, informations de la société et rappels.</p>
+</hgroup>
+
+<nav class="page-toc" aria-label="Sections">
+  <ul>
+    {% for title, anchor, fields in form.groups %}<li><a href="#{{ anchor }}">{{ title }}</a></li>{% endfor %}
+    <li><a href="#rangees">Rangées</a></li>
+    <li><a href="#email-test">Email de test</a></li>
+  </ul>
+</nav>
+
+<article class="notice">
+  <strong>Important :</strong> les changements de tarif et de TVA s'appliquent uniquement aux
+  <strong>nouvelles réservations</strong>. Les réservations et les factures existantes conservent
+  les montants enregistrés au moment de leur création.
+</article>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
+
+  {% for title, anchor, fields in form.groups %}
+  <article id="{{ anchor }}">
+    <header><h2>{{ title }}</h2></header>
+    <div class="field-grid">
+      {% for field, wide in fields %}
+        <div{% if wide %} class="field-wide"{% endif %}>{% include "includes/field.html" %}</div>
+      {% endfor %}
+    </div>
+    {% if title == "Rappels" %}
+      <details>
+        <summary>Variables disponibles dans l'objet et le texte</summary>
+        <ul>
+          {% for name, description in placeholders.items %}
+            <li><code>{{ "{" }}{{ name }}{{ "}" }}</code> : {{ description }}</li>
+          {% endfor %}
+        </ul>
+      </details>
+    {% endif %}
+    <footer><button type="submit">Enregistrer les paramètres</button></footer>
+  </article>
+  {% endfor %}
+</form>
+
+<article id="rangees">
+  <header>
+    <h2>Rangées</h2>
+    <p><small>Longueur par défaut : {{ app_settings.default_row_length_m|floatformat:2 }} m.
+    Une rangée sans longueur spécifique utilise cette valeur.</small></p>
+  </header>
+
+  <form method="post" action="{% url 'storage:row_bulk_create' %}" class="bulk-create">
+    {% csrf_token %}
+    <fieldset role="group">
+      <input type="number" name="count" min="1" max="200" value="{{ bulk_form.count.initial }}"
+             aria-label="{{ bulk_form.count.label }}" required>
+      <button type="submit">Créer les rangées</button>
+    </fieldset>
+    <small>Les rangées sont numérotées à la suite des existantes (R01, R02, …).</small>
+  </form>
+
+  {% if rows %}
+  <div class="overflow-auto">
+    <table class="striped rows-table">
+      <thead>
+        <tr>
+          <th scope="col">Code</th>
+          <th scope="col">Ordre</th>
+          <th scope="col">Longueur spécifique</th>
+          <th scope="col">Longueur utilisée</th>
+          <th scope="col">Active</th>
+          <th scope="col">Notes</th>
+          <th scope="col"><span class="visually-hidden">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}{% include "storage/_row_display.html" %}{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="empty-state">Aucune rangée pour le moment.</p>
+  {% endif %}
+</article>
+
+<article id="email-test">
+  <header><h2>Email de test</h2></header>
+  <p>Envoie un email à <strong>{{ user.email|default:"vos administrateurs" }}</strong> pour vérifier
+  la configuration d'envoi (serveur SMTP défini dans le fichier <code>.env</code>).</p>
+  <form method="post" action="{% url 'core:settings_test_email' %}">
+    {% csrf_token %}
+    <button type="submit" class="secondary">Envoyer un email de test</button>
+  </form>
+</article>
+{% endblock %}
