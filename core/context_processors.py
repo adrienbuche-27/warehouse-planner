@@ -4,6 +4,7 @@ NAV_SECTIONS = [
     ("core:dashboard", "dashboard"),
     ("core:settings", "settings"),
     ("storage:row_", "settings"),
+    ("storage:booking_", "bookings"),
     ("clients:client_", "clients"),
     ("clients:vehicle_", "vehicles"),
 ]

@@ -1,0 +1,45 @@
+{% load formatting %}
+{% if missing %}
+  <p class="error">Choisissez le véhicule, la date d'entrée et le nombre de périodes pour obtenir des propositions.</p>
+{% elif already_booked %}
+  <p class="error">Ce véhicule est déjà réservé sur cette période.</p>
+{% elif not suggestions %}
+  <p class="error">Aucun emplacement disponible pour ce véhicule sur cette période.</p>
+{% else %}
+<div class="overflow-auto">
+  <table class="suggestions">
+    <thead>
+      <tr>
+        <th scope="col">Rangée</th>
+        <th scope="col">Position</th>
+        <th scope="col">Occupation au plus chargé</th>
+        <th scope="col">Blocages</th>
+        <th scope="col"><span class="visually-hidden">Choisir</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in suggestions %}
+      <tr>
+        <th scope="row">{{ s.row.code }}</th>
+        <td>{{ s.position }}</td>
+        <td>{{ s.fit.peak_occupancy_m|metres }} / {{ s.fit.row_length_m|metres }} <small class="muted">({{ s.wasted_m|metres }} libres)</small></td>
+        <td>
+          {% if s.conflict_count %}
+            <span class="warn">⚠ {{ s.conflict_count }}</span>
+            <small>{% if s.blocked_by %}gêné par {% for b in s.blocked_by %}{{ b.vehicle.plate }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% if s.blocked_by and s.blocks %} · {% endif %}{% if s.blocks %}gêne {% for b in s.blocks %}{{ b.vehicle.plate }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</small>
+          {% else %}
+            <span class="ok">aucun</span>
+          {% endif %}
+        </td>
+        <td class="actions">
+          <button type="button" class="small"
+                  onclick="document.getElementById('id_row').value='{{ s.row.pk }}'; document.getElementById('id_position').value='{{ s.position }}';">
+            Choisir
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}

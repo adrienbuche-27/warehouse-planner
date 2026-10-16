@@ -1,0 +1,34 @@
+<p><small>{{ page.paginator.count }} réservation(s)</small></p>
+{% if page.object_list %}
+<div class="overflow-auto">
+  <table class="striped">
+    <thead>
+      <tr>
+        <th scope="col">Véhicule</th>
+        <th scope="col">Client</th>
+        <th scope="col">Emplacement</th>
+        <th scope="col">Du</th>
+        <th scope="col">Au</th>
+        <th scope="col">Périodes</th>
+        <th scope="col">Statut</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for booking in page.object_list %}
+      <tr>
+        <th scope="row"><a href="{% url 'storage:booking_detail' booking.pk %}">{{ booking.vehicle.plate }}</a></th>
+        <td><a href="{% url 'clients:client_detail' booking.vehicle.client_id %}">{{ booking.vehicle.client.display_name }}</a></td>
+        <td>{{ booking.row.code }} · pos. {{ booking.position }}</td>
+        <td>{{ booking.start_date|date }}</td>
+        <td>{{ booking.end_date|date }}</td>
+        <td>{{ booking.periods }}</td>
+        <td>{% include "includes/status_badge.html" %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "includes/pagination.html" %}
+{% else %}
+  <p class="empty-state">Aucune réservation trouvée.</p>
+{% endif %}

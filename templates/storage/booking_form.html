@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}{% if booking %}Modifier la réservation{% else %}Nouvelle réservation{% endif %}{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>{% if booking %}Modifier la réservation{% else %}Nouvelle réservation{% endif %}</h1>
+  {% if booking %}<p>{{ booking.vehicle.plate }} · {{ booking.row.code }} pos. {{ booking.position }}</p>{% endif %}
+</hgroup>
+
+{% if price_missing and not booking %}
+  <article class="notice">
+    Le prix par période n'est pas encore défini : renseignez-le dans les
+    <a href="{% url 'core:settings' %}#tarifs-tva">Paramètres</a> avant de créer une réservation.
+  </article>
+{% endif %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  <input type="hidden" id="booking-id" name="booking" value="{{ booking.pk|default:'' }}">
+  {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
+
+  <article>
+    <header><h2>Client et véhicule</h2></header>
+    <div class="field-grid">
+      <div>
+        <label for="id_client">{{ form.client.label }}</label>
+        <select name="client" id="id_client" {% if form.client.errors %}aria-invalid="true"{% endif %}
+                hx-get="{% url 'storage:booking_vehicles' %}" hx-target="#vehicle-field" hx-trigger="change">
+          <option value="">— Choisir un client —</option>
+          {% for client in form.fields.client.queryset %}
+            <option value="{{ client.pk }}" {% if client.pk|stringformat:"s" == form.client.value|stringformat:"s" %}selected{% endif %}>{{ client.display_name }}</option>
+          {% endfor %}
+        </select>
+        {% for error in form.client.errors %}<small class="error">{{ error }}</small>{% endfor %}
+      </div>
+      <div>
+        <div id="vehicle-field">
+          {% with vehicles=form.fields.vehicle.queryset selected=form.vehicle.value|stringformat:"s" client_id=form.client.value %}
+            {% include "storage/_vehicle_select.html" %}
+          {% endwith %}
+        </div>
+        {% for error in form.vehicle.errors %}<small class="error">{{ error }}</small>{% endfor %}
+      </div>
+    </div>
+    <div id="quick-vehicle"></div>
+  </article>
+
+  <article>
+    <header><h2>Dates</h2></header>
+    <div class="field-grid"
+         hx-get="{% url 'storage:booking_summary' %}" hx-target="#summary"
+         hx-trigger="load, change from:#id_start_date, input delay:300ms from:#id_periods"
+         hx-include="#id_start_date, #id_periods, #booking-id">
+      <div>{% include "includes/field.html" with field=form.start_date %}</div>
+      <div>{% include "includes/field.html" with field=form.periods %}</div>
+    </div>
+    <div id="summary"></div>
+  </article>
+
+  <article>
+    <header class="page-header">
+      <h2>Emplacement</h2>
+      <button type="button" class="outline"
+              hx-get="{% url 'storage:booking_suggestions' %}" hx-target="#suggestions"
+              hx-include="#id_vehicle, #id_start_date, #id_periods, #booking-id">
+        Proposer un emplacement
+      </button>
+    </header>
+    <div id="suggestions"></div>
+    <div class="field-grid">
+      <div>{% include "includes/field.html" with field=form.row %}</div>
+      <div>{% include "includes/field.html" with field=form.position %}</div>
+    </div>
+
+    {% if form.warnings %}
+      <div class="warning-box" role="alert">
+        <p><strong>Attention : cet emplacement implique de déplacer des véhicules.</strong></p>
+        <ul>{% for warning in form.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+        <label><input type="checkbox" name="confirm_conflicts" {% if form.confirm_conflicts.value %}checked{% endif %}> {{ form.confirm_conflicts.label }}</label>
+        {% for error in form.confirm_conflicts.errors %}<small class="error">{{ error }}</small>{% endfor %}
+      </div>
+    {% endif %}
+  </article>
+
+  <article>{% include "includes/field.html" with field=form.notes %}</article>
+
+  <div class="form-actions">
+    <button type="submit">{% if booking %}Enregistrer{% else %}Créer la réservation{% endif %}</button>
+    <a href="{% if booking %}{% url 'storage:booking_detail' booking.pk %}{% else %}{% url 'storage:booking_list' %}{% endif %}" role="button" class="secondary outline">Annuler</a>
+  </div>
+</form>
+{% endblock %}

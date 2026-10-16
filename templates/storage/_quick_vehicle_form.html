@@ -1,0 +1,19 @@
+{% if no_client %}
+  <p class="error">Choisissez d'abord le client du nouveau véhicule.</p>
+{% else %}
+<fieldset class="quick-vehicle">
+  <legend>Nouveau véhicule pour {{ client.display_name }}</legend>
+  <div class="field-grid">
+    <div>{% include "includes/field.html" with field=form.plate %}</div>
+    <div>{% include "includes/field.html" with field=form.brand %}</div>
+    <div>{% include "includes/field.html" with field=form.model %}</div>
+    <div>{% include "includes/field.html" with field=form.length_m %}</div>
+    <div>{% include "includes/field.html" with field=form.height_m %}</div>
+  </div>
+  <div class="form-actions">
+    <button type="button" hx-post="{% url 'storage:booking_quick_vehicle' %}"
+            hx-include="closest fieldset, #id_client" hx-target="#vehicle-field">Ajouter le véhicule</button>
+    <button type="button" class="secondary outline" onclick="this.closest('#quick-vehicle').innerHTML = ''">Annuler</button>
+  </div>
+</fieldset>
+{% endif %}

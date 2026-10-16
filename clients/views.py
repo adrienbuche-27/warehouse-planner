@@ -7,6 +7,7 @@ from clients import services
 from clients.forms import ClientForm, VehicleForm
 from clients.models import Client, ClientType, Vehicle
 from core.services import protected_objects
+from storage.models import Booking
 
 PAGE_SIZE = 50
 
@@ -49,7 +50,12 @@ def client_create(request):
 
 def client_detail(request, pk):
     client = get_object_or_404(Client, pk=pk)
-    context = {"client": client, "vehicles": client.vehicles.all()}
+    bookings = Booking.objects.filter(vehicle__client=client).select_related("vehicle", "row")
+    context = {
+        "client": client,
+        "vehicles": client.vehicles.all(),
+        "bookings": bookings.order_by("-start_date"),
+    }
     return render(request, "clients/client_detail.html", context)
 
 
@@ -120,7 +126,10 @@ def vehicle_create(request):
 
 def vehicle_detail(request, pk):
     vehicle = get_object_or_404(Vehicle.objects.select_related("client"), pk=pk)
-    return render(request, "clients/vehicle_detail.html", {"vehicle": vehicle})
+    bookings = vehicle.bookings.select_related("row").order_by("-start_date")
+    return render(
+        request, "clients/vehicle_detail.html", {"vehicle": vehicle, "bookings": bookings}
+    )
 
 
 def vehicle_edit(request, pk):

@@ -24,7 +24,7 @@
         <li><a href="{% url 'core:dashboard' %}" {% if nav_section == 'dashboard' %}aria-current="page"{% endif %}>Tableau de bord</a></li>
         {# Sections without a link yet are built in later milestones (see CLAUDE.md, section 12). #}
         <li><a aria-disabled="true" title="Disponible prochainement">Planning</a></li>
-        <li><a aria-disabled="true" title="Disponible prochainement">Réservations</a></li>
+        <li><a href="{% url 'storage:booking_list' %}" {% if nav_section == 'bookings' %}aria-current="page"{% endif %}>Réservations</a></li>
         <li><a href="{% url 'clients:client_list' %}" {% if nav_section == 'clients' %}aria-current="page"{% endif %}>Clients</a></li>
         <li><a href="{% url 'clients:vehicle_list' %}" {% if nav_section == 'vehicles' %}aria-current="page"{% endif %}>Véhicules</a></li>
         <li><a aria-disabled="true" title="Disponible prochainement">Factures</a></li>

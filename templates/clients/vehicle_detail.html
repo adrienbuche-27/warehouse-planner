@@ -38,4 +38,12 @@
     {% if vehicle.notes %}<p>{{ vehicle.notes|linebreaksbr }}</p>{% else %}<p class="muted">Aucune note.</p>{% endif %}
   </article>
 </div>
+
+<article>
+  <header class="page-header">
+    <h2>Réservations</h2>
+    {% if not vehicle.is_effectively_archived %}<a href="{% url 'storage:booking_create' %}?vehicule={{ vehicle.pk }}" role="button" class="outline">+ Nouvelle réservation</a>{% endif %}
+  </header>
+  {% include "includes/booking_table.html" %}
+</article>
 {% endblock %}

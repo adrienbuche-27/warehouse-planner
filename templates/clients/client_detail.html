@@ -62,4 +62,11 @@
     <p class="muted">Aucun véhicule.</p>
   {% endif %}
 </article>
+<article>
+  <header class="page-header">
+    <h2>Réservations</h2>
+    {% if not client.is_archived %}<a href="{% url 'storage:booking_create' %}?client={{ client.pk }}" role="button" class="outline">+ Nouvelle réservation</a>{% endif %}
+  </header>
+  {% include "includes/booking_table.html" with show_vehicle=True %}
+</article>
 {% endblock %}
