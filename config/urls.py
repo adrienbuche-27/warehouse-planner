@@ -24,4 +24,5 @@ urlpatterns = [
     path("", include("storage.urls")),
     path("", include("clients.urls")),
     path("", include("invoicing.urls")),
+    path("", include("reminders.urls")),
 ]

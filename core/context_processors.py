@@ -7,6 +7,7 @@ NAV_SECTIONS = [
     ("storage:booking_", "bookings"),
     ("storage:planning", "planning"),
     ("invoicing:", "invoices"),
+    ("reminders:", "dashboard"),  # reached from the dashboard
     ("clients:client_", "clients"),
     ("clients:vehicle_", "vehicles"),
 ]

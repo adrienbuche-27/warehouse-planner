@@ -8,7 +8,10 @@
     <h1>Réservations</h1>
     <p>Emplacements réservés et véhicules en stock.</p>
   </hgroup>
-  <a href="{% url 'storage:booking_create' %}" role="button">+ Nouvelle réservation</a>
+  <div class="actions">
+    <a href="{% url 'reminders:reminder_list' %}" role="button" class="outline">Historique des rappels</a>
+    <a href="{% url 'storage:booking_create' %}" role="button">+ Nouvelle réservation</a>
+  </div>
 </div>
 
 <form method="get" class="filters" hx-get="{% url 'storage:booking_list' %}" hx-target="#results"

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Rappels{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'core:dashboard' %}">← Tableau de bord</a></p>
+<hgroup>
+  <h1>Historique des rappels</h1>
+  <p>Emails envoyés automatiquement par la tâche quotidienne : rappels aux clients et aux administrateurs, résumé des entrées bloquées.</p>
+</hgroup>
+
+<form method="get" class="filters" hx-get="{% url 'reminders:reminder_list' %}" hx-target="#results"
+      hx-trigger="input delay:300ms, change, submit" hx-push-url="true">
+  <input type="search" name="q" value="{{ query }}" placeholder="Plaque, client ou destinataire…" aria-label="Rechercher">
+  <select name="type" aria-label="Type">
+    <option value="">Tous les types</option>
+    {% for value, label in kinds %}<option value="{{ value }}" {% if value == kind %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="resultat" aria-label="Résultat">
+    <option value="">Envoyés et échecs</option>
+    <option value="ok" {% if result == "ok" %}selected{% endif %}>Envoyés</option>
+    <option value="echec" {% if result == "echec" %}selected{% endif %}>Échecs</option>
+  </select>
+  <label class="date-filter">Du <input type="date" name="du" value="{{ date_from|date:'Y-m-d' }}"></label>
+  <label class="date-filter">au <input type="date" name="au" value="{{ date_to|date:'Y-m-d' }}"></label>
+  <noscript><button type="submit">Filtrer</button></noscript>
+</form>
+
+<div id="results">{% include "reminders/_reminder_results.html" %}</div>
+{% endblock %}
