@@ -1,0 +1,61 @@
+{% load formatting %}
+{# Warehouse map: one strip per row, aisle on the left, vehicles by position (1 = aisle). #}
+{# pick: booking form (a row is clicked to choose it); otherwise the "Plan de l'entrepôt" page. #}
+<div class="warehouse-map{% if pick %} pick{% endif %}">
+  <div class="map-head" aria-hidden="true">
+    <span>Rangée</span>
+    <span>← Allée (accès) · fond de la rangée →</span>
+    <span>Libre</span>
+    {% if pick %}<span></span>{% endif %}
+  </div>
+  {% for r in map.rows %}
+  <div class="map-row{% if pick and r.row.pk|stringformat:'s' == selected_row %} selected{% endif %}">
+    {% if pick and r.can_pick %}
+    <button type="button" class="map-line" data-row="{{ r.row.pk }}" data-position="{{ r.position }}"
+            onclick="pickMapRow(this)" aria-label="Choisir la rangée {{ r.row.code }}, position {{ r.position }}">
+    {% else %}
+    <div class="map-line">
+    {% endif %}
+      <span class="map-code">{{ r.row.code }}</span>
+      <span class="map-track">
+        <span class="map-strip" style="width: {{ r.width }}%">
+          {% for slot in r.positions %}
+          <span class="map-slot" style="flex-basis: {{ slot.width }}%">
+            {% for v in slot.vehicles %}
+              {% with b=v.booking %}
+              {% if pick %}<span{% else %}<a href="{% url 'storage:booking_detail' b.pk %}"{% endif %}
+                 class="map-vehicle status-{{ b.status }}{% if v.partial %} partial{% endif %}" style="width: {{ v.width }}%"
+                 title="{{ b.vehicle.plate }} – {{ b.vehicle.client.display_name }} – {{ b.vehicle.length_m|metres }} – pos. {{ b.position }} – du {{ b.start_date|date:'d/m/Y' }} au {{ b.end_date|date:'d/m/Y' }} – {{ b.get_status_display }}">
+                <span class="map-pos">{{ b.position }}</span> {{ b.vehicle.plate }}
+                {% if v.partial %}<small class="map-dates">{{ b.start_date|date:"d/m" }}–{{ b.end_date|date:"d/m" }}</small>{% endif %}
+              {% if pick %}</span>{% else %}</a>{% endif %}
+              {% endwith %}
+            {% endfor %}
+          </span>
+          {% endfor %}
+          {% if not pick and r.free_m > 0 %}
+            <a class="map-free" href="{% url 'storage:booking_create' %}?rangee={{ r.row.pk }}&amp;debut={{ map.start|date:'Y-m-d' }}"
+               title="Nouvelle réservation dans {{ r.row.code }} le {{ map.start|date:'d/m/Y' }}"><span class="visually-hidden">Nouvelle réservation dans {{ r.row.code }}</span></a>
+          {% endif %}
+        </span>
+      </span>
+      <span class="map-free-label level-text-{{ r.level }}">{{ r.free_m|metres_short }}&nbsp;m</span>
+      {% if pick %}
+      <span class="map-mark">
+        {% if r.starred %}<span class="star" title="Parmi les meilleures propositions">★</span>{% endif %}
+        {% if r.status == "fits" %}<span class="ok" title="Le véhicule y tient">✓</span><span class="visually-hidden">tient</span>
+        {% elif r.status == "conflict" %}<span class="warn" title="Le véhicule y tient, mais des véhicules devront être déplacés">⚠</span><span class="visually-hidden">tient, avec déplacements</span>
+        {% else %}<span class="muted" title="Pas assez de place">✗</span><span class="visually-hidden">pas assez de place</span>{% endif %}
+      </span>
+      {% endif %}
+    {% if pick and r.can_pick %}</button>{% else %}</div>{% endif %}
+    {% if r.warnings %}
+      <div class="map-row-note warning-box">
+        <ul>{% for warning in r.warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+      </div>
+    {% endif %}
+  </div>
+  {% empty %}
+  <p class="muted">Aucune rangée active : créez les rangées dans les <a href="{% url 'core:settings' %}#rangees">Paramètres</a>.</p>
+  {% endfor %}
+</div>

@@ -15,7 +15,7 @@ from core.forms import BulkRowCreateForm
 from core.models import AppSettings
 from invoicing import services as invoicing_services
 from storage import planning as planning_module
-from storage import services
+from storage import services, warehouse_map
 from storage.forms import (
     BookingForm,
     ExtendForm,
@@ -336,6 +336,25 @@ def booking_suggestions(request):
     return render(request, "storage/_suggestions.html", context)
 
 
+def booking_map(request):
+    """Warehouse map in the booking form, for the vehicle and dates being booked."""
+    vehicle = Vehicle.objects.filter(pk=request.GET.get("vehicle") or 0).first()
+    start = _parse_date(request.GET.get("start_date"))
+    periods = request.GET.get("periods", "")
+    booking = None
+    if request.GET.get("booking", "").isdigit():
+        booking = Booking.objects.filter(pk=request.GET["booking"]).first()
+    context = {
+        "missing": not (vehicle and start and periods.isdigit() and 0 < int(periods) <= 100),
+        "selected_row": request.GET.get("row", ""),
+    }
+    if not context["missing"]:
+        end = compute_end_date(start, int(periods), AppSettings.load().period_days)
+        context["already_booked"] = bool(services.vehicle_conflicts(vehicle, start, end, booking))
+        context["map"] = warehouse_map.build_map(start, end, vehicle, booking)
+    return render(request, "storage/_booking_map.html", context)
+
+
 def booking_quick_client(request):
     """ "+ Nouveau client" inside the booking form.
 
@@ -420,6 +439,20 @@ def planning(request):
         },
     }
     return render(request, "storage/planning.html", context)
+
+
+def planning_map(request):
+    """ "Plan de l'entrepôt": who is where on a given day (today by default)."""
+    today = services.today()
+    day = _parse_date(request.GET.get("date")) or today
+    week = datetime.timedelta(days=7)
+    context = {
+        "map": warehouse_map.build_map(day),
+        "day": day,
+        "today": today,
+        "nav": {"back": day - week, "forward": day + week},
+    }
+    return render(request, "storage/warehouse_map.html", context)
 
 
 def planning_cell(request, row_pk, start):

@@ -434,3 +434,120 @@ a.blocking-icon { text-decoration: none; white-space: nowrap; }
 .bar-chart .bar:hover path { fill: #1f63b5; }
 .bar-chart .bar:hover .hit { fill: rgba(42, 120, 214, 0.06); }
 .dashboard-charts details { margin-top: 0.5rem; font-size: 0.875rem; }
+
+/* Warehouse map (storage/warehouse_map.py): one strip per row, aisle on the left */
+.map-legend { font-size: 0.85rem; color: var(--pico-muted-color); }
+.map-title { font-size: 1.05rem; margin: var(--pico-spacing) 0 0.5rem; }
+.booking-map .warehouse-map {
+  max-height: 70vh;
+  overflow-y: auto;
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  padding: 0.25rem 0.5rem;
+}
+.map-head,
+.map-line {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr 3.8rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+.pick .map-head,
+.pick .map-line { grid-template-columns: 3.2rem 1fr 3.8rem 2.6rem; }
+.map-head {
+  font-size: 0.75rem;
+  color: var(--pico-muted-color);
+  position: sticky;
+  top: 0;
+  background: var(--pico-background-color);
+  z-index: 1;
+  padding: 0.2rem 0;
+}
+.map-row { border-bottom: 1px solid var(--pico-muted-border-color); }
+.map-row:last-child { border-bottom: 0; }
+/* The clickable row of the booking form: a real button, without Pico's button look. */
+button.map-line {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font-size: inherit;
+  cursor: pointer;
+}
+button.map-line:hover { background: #eef4fb; }
+button.map-line:focus-visible { outline: 2px solid var(--pico-primary); outline-offset: -2px; }
+.map-row.selected { background: #e3f2fd; box-shadow: inset 4px 0 0 var(--pico-primary); }
+.map-line { padding: 0.25rem 0; min-height: 2.1rem; }
+.map-code { font-weight: 600; font-size: 0.9rem; padding-left: 0.3rem; }
+.map-track { display: block; min-width: 0; }
+.map-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-height: 1.7rem;
+  background: repeating-linear-gradient(135deg, #f3f4f6 0 6px, #e9ebef 6px 12px);
+  border: 1px solid #c9ced6;
+  border-left: 3px solid #6b7280; /* the aisle side */
+  border-radius: 3px;
+  overflow: hidden;
+}
+/* A position: its vehicles one under the other (one after another in time). */
+.map-slot {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.map-vehicle {
+  flex: 1 0 1.55rem;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.3rem;
+  background: #2a78d6;
+  color: #fff;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+  border-radius: 2px;
+}
+a.map-vehicle:hover { background: #1d5fae; color: #fff; }
+.map-vehicle.status-reserved { background: #9cc3f0; color: #0d2b52; }
+.map-vehicle.partial { opacity: 0.55; outline: 1px dashed #0d2b52; outline-offset: -2px; }
+.map-pos {
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  padding: 0 0.2rem;
+}
+.map-free { flex: 1 1 auto; min-width: 0.5rem; }
+.map-dates { font-size: 0.65rem; opacity: 0.85; }
+.map-free:hover { background: rgba(46, 125, 50, 0.18); }
+.map-free-label { font-size: 0.8rem; text-align: right; white-space: nowrap; }
+.level-text-ok { color: var(--app-ok); }
+.level-text-warn { color: var(--app-warn); }
+.level-text-danger { color: var(--app-danger); }
+.map-mark { white-space: nowrap; font-weight: 700; }
+.map-mark .star { color: #b7791f; }
+.star { color: #b7791f; }
+.map-row-note { display: none; margin: 0 0 0.5rem 3.7rem; font-size: 0.85rem; }
+.map-row-note ul { margin-bottom: 0; }
+.map-row.selected .map-row-note { display: block; }
+.map-vehicle-sample {
+  display: inline-block;
+  width: 1.4rem;
+  height: 0.8rem;
+  vertical-align: middle;
+  border-radius: 2px;
+  background: #2a78d6;
+}
+.map-vehicle-sample.status-reserved { background: #9cc3f0; }
+.map-vehicle-sample.partial { opacity: 0.55; outline: 1px dashed #0d2b52; outline-offset: -2px; }

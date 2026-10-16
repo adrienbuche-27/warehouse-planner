@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block title %}Plan de l'entrepôt{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'storage:planning' %}">← Planning</a></p>
+<div class="page-header">
+  <hgroup>
+    <h1>Plan de l'entrepôt</h1>
+    <p>Le {{ day|date:"l d/m/Y" }} : {{ map.vehicle_count }} véhicule{{ map.vehicle_count|pluralize }}, {{ map.occupancy_percent }} % occupé, {{ map.total_free_m|metres_short }}&nbsp;m libres.</p>
+  </hgroup>
+  <a href="{% url 'storage:booking_create' %}" role="button">+ Nouvelle réservation</a>
+</div>
+
+<div class="planning-toolbar">
+  <nav aria-label="Navigation dans le temps">
+    <ul>
+      <li><a href="?date={{ nav.back|date:'Y-m-d' }}" role="button" class="secondary outline">‹ 7 jours plus tôt</a></li>
+      <li><a href="?date={{ today|date:'Y-m-d' }}" role="button" class="secondary">Aujourd'hui</a></li>
+      <li><a href="?date={{ nav.forward|date:'Y-m-d' }}" role="button" class="secondary outline">7 jours plus tard ›</a></li>
+    </ul>
+  </nav>
+  <form method="get">
+    <fieldset role="group">
+      <input type="date" name="date" value="{{ day|date:'Y-m-d' }}" aria-label="Date">
+      <button type="submit">Afficher</button>
+    </fieldset>
+  </form>
+</div>
+
+<p class="map-legend">
+  <span class="map-vehicle-sample status-stored"></span> en stock ·
+  <span class="map-vehicle-sample status-reserved"></span> réservé (pas encore entré) ·
+  cliquez sur un véhicule pour ouvrir sa réservation, ou sur la place libre d'une rangée pour y créer une réservation.
+</p>
+
+{% include "storage/_warehouse_map.html" with pick=False %}
+{% endblock %}

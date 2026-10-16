@@ -77,6 +77,13 @@
         {% for error in form.confirm_conflicts.errors %}<small class="error">{{ error }}</small>{% endfor %}
       </div>
     {% endif %}
+
+    <h3 class="map-title">Plan de l'entrepôt sur la période</h3>
+    <div id="warehouse-map" class="booking-map"
+         hx-get="{% url 'storage:booking_map' %}"
+         hx-trigger="load, change from:#id_start_date, input changed delay:500ms from:#id_periods,
+                     change[target.id=='id_vehicle'] from:body, vehicle-selected from:body"
+         hx-include="#id_vehicle, #id_start_date, #id_periods, #id_row, #booking-id"></div>
   </article>
 
   <article>{% include "includes/field.html" with field=form.notes %}</article>
@@ -86,4 +93,14 @@
     <a href="{% if booking %}{% url 'storage:booking_detail' booking.pk %}{% else %}{% url 'storage:booking_list' %}{% endif %}" role="button" class="secondary outline">Annuler</a>
   </div>
 </form>
+
+<script>
+  // Warehouse map: clicking a row fills "Rangée" and "Position" with the best place in it.
+  function pickMapRow(button) {
+    document.getElementById("id_row").value = button.dataset.row;
+    document.getElementById("id_position").value = button.dataset.position;
+    document.querySelectorAll(".map-row.selected").forEach((row) => row.classList.remove("selected"));
+    button.closest(".map-row").classList.add("selected");
+  }
+</script>
 {% endblock %}

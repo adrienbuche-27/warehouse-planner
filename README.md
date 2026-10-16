@@ -143,6 +143,12 @@ or templates, so it can be unit-tested.
   in when entering or leaving. Click a cell for its vehicles, move plans and "Nouvelle
   réservation ici". "Espace libre min." keeps rows with that much free space in at least one
   window and dims the other windows.
+- **Warehouse map** (`storage/warehouse_map.py`): one strip per row, aisle on the left, each
+  vehicle sized to its length by position. "Plan de l'entrepôt" (from the Planning page) shows
+  one day: click a vehicle for its booking, or a row's free space to book there. The booking
+  form shows it for the stay being booked (vehicles using a position one after another are
+  stacked; free metres at the busiest moment) with ✓ / ★ / ⚠ / ✗ per row; clicking a row fills
+  "Rangée" and "Position" with the best place in it (the fit check still applies on save).
 - **Invoices** (`invoicing/services.py`) follow CLAUDE.md section 8, to be validated by the
   accountant before go-live:
   - "Créer la facture" on a booking makes a draft for its periods not invoiced yet (after

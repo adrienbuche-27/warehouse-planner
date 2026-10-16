@@ -279,11 +279,12 @@ Navigation bar: **Tableau de bord · Planning · Réservations · Clients · Vé
 - A warning icon appears in a cell if any vehicle in that row has a blocked entry or exit within that window.
 - Clicking a cell opens a panel (HTMX) listing vehicles in that row for that window, by position: plate, client, dates, status, boxed-in warnings and move plans. A "Nouvelle réservation ici" button prefills row and start date.
 - Filter: show only rows with free space ≥ X m (useful when placing an 8 m vehicle).
+- **Plan de l'entrepôt** (linked from the Planning page): top-down map for one day (today by default). Each active row is a horizontal strip in display order, aisle on the left, vehicles drawn by position and sized to their length, free metres at the end. Clicking a vehicle opens its booking; clicking a row's free space starts a booking there (row and date prefilled).
 
 ### 7.3 Réservations
 
 - List with filters: status, row, client, date range. Search by plate or client name.
-- **Booking form**: select client, then vehicle (HTMX dependent dropdown; "+ Nouveau client" and "+ Nouveau véhicule" open the full forms inline: a new client is selected and goes straight on to the new-vehicle form), start date, number of periods. The end date and price (HT, TVA, TTC) are computed live. "Proposer un emplacement" shows the ranked suggestions from 6.3 (top 5); picking one fills row and position. Manual row/position entry is allowed, but `check_fit` must pass. Blocking conflicts show a warning with the move plan and require ticking "Je confirme".
+- **Booking form**: select client, then vehicle (HTMX dependent dropdown; "+ Nouveau client" and "+ Nouveau véhicule" open the full forms inline: a new client is selected and goes straight on to the new-vehicle form), start date, number of periods. The end date and price (HT, TVA, TTC) are computed live. "Proposer un emplacement" shows the ranked suggestions from 6.3 (top 5); picking one fills row and position. Once vehicle, start date and periods are set, the form also shows the warehouse map for the stay: every vehicle present at some point (those present only part of the time drawn lighter, vehicles using a position one after another stacked), free metres at the busiest moment, and per row ✓ fits, ★ among the top 5 suggestions, ⚠ fits with vehicles to move (move plan shown when picked), ✗ not enough room. Clicking a row that fits fills row and its best position. Manual row/position entry is allowed, but `check_fit` must pass. Blocking conflicts show a warning with the move plan and require ticking "Je confirme".
 - Booking detail: all info, status actions (Marquer en stock / Marquer sortie / Annuler / Prolonger), linked invoices, reminder history, blockers.
 
 ### 7.4 Clients and Véhicules
