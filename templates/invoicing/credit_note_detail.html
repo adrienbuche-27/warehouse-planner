@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block title %}Note de crédit {{ doc }}{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'invoicing:invoice_detail' doc.invoice.pk %}">← Facture {{ doc.invoice.number }}</a></p>
+
+<div class="page-header">
+  <hgroup>
+    <h1>{% if doc.is_draft %}Note de crédit – brouillon{% else %}Note de crédit {{ doc.number }}{% endif %}
+      <span class="badge invoice-{{ doc.status }}">{{ doc.get_status_display }}</span></h1>
+    <p>Corrige la facture <a href="{% url 'invoicing:invoice_detail' doc.invoice.pk %}">{{ doc.invoice.number }}</a>
+      du {{ doc.invoice.issue_date|date }} · {{ doc.invoice.client_name }} · motif : {{ doc.reason }}</p>
+  </hgroup>
+  <div class="actions">
+    {% if doc.is_draft %}
+      <a href="{% url 'invoicing:credit_note_edit' doc.pk %}" role="button" class="outline">Modifier</a>
+      <form method="post" action="{% url 'invoicing:credit_note_issue' doc.pk %}"
+            onsubmit="return confirm('Émettre la note de crédit ? Elle deviendra définitive.');">
+        {% csrf_token %}<button type="submit">Émettre</button>
+      </form>
+      <form method="post" action="{% url 'invoicing:credit_note_delete' doc.pk %}" onsubmit="return confirm('Supprimer ce brouillon ?');">
+        {% csrf_token %}<button type="submit" class="secondary outline">Supprimer le brouillon</button>
+      </form>
+    {% else %}
+      <a href="{% url 'invoicing:document_pdf' 'note-de-credit' doc.pk %}" role="button" target="_blank">Télécharger le PDF</a>
+      <form method="post" action="{% url 'invoicing:document_email' 'note-de-credit' doc.pk %}">
+        {% csrf_token %}<button type="submit" class="secondary">Envoyer par email</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+{% include "invoicing/_missing_company.html" %}
+{% if doc.is_draft %}
+  <article class="notice">
+    Reste à créditer sur la facture : <strong>{{ remaining_to_credit|money }}</strong>.
+    Si la note de crédit couvre ce montant, la facture sera annulée à l'émission.
+  </article>
+{% endif %}
+
+<article>
+  <header><h2>Lignes</h2></header>
+  {% include "invoicing/_document_lines.html" %}
+  {% if doc.issue_date %}<footer><small class="muted">Émise le {{ doc.issue_date|date }}{% if doc.emailed_at %} · envoyée le {{ doc.emailed_at|date:"d/m/Y H:i" }}{% endif %}</small></footer>{% endif %}
+</article>
+{% endblock %}

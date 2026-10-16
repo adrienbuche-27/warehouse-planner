@@ -50,6 +50,20 @@
   </article>
 </div>
 
+<article id="factures">
+  <header class="page-header">
+    <h2>Factures</h2>
+    {% if uninvoiced_periods %}
+      <form method="post" action="{% url 'invoicing:invoice_from_booking' booking.pk %}">
+        {% csrf_token %}
+        <button type="submit">{% if invoices %}Facturer {{ uninvoiced_periods }} période{{ uninvoiced_periods|pluralize }} non facturée{{ uninvoiced_periods|pluralize }}{% else %}Créer la facture{% endif %}</button>
+      </form>
+    {% endif %}
+  </header>
+  {% with invoices=invoices %}{% include "includes/invoice_table.html" %}{% endwith %}
+  {% if invoices and not uninvoiced_periods %}<footer><small class="muted">Toutes les périodes sont facturées.</small></footer>{% endif %}
+</article>
+
 {% if booking.notes %}<article><header><h2>Notes</h2></header><p>{{ booking.notes|linebreaksbr }}</p></article>{% endif %}
 
 {% if booking.is_active %}

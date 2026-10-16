@@ -6,6 +6,7 @@ NAV_SECTIONS = [
     ("storage:row_", "settings"),
     ("storage:booking_", "bookings"),
     ("storage:planning", "planning"),
+    ("invoicing:", "invoices"),
     ("clients:client_", "clients"),
     ("clients:vehicle_", "vehicles"),
 ]

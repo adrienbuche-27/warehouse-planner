@@ -1,0 +1,35 @@
+{% load formatting %}
+<p><small>{{ page.paginator.count }} facture(s) · total sélection :
+  <strong>{{ totals.excl|default:0|money }}</strong> HTVA, {{ totals.vat|default:0|money }} TVA,
+  <strong>{{ totals.incl|default:0|money }}</strong> TVAC</small></p>
+{% if page.object_list %}
+<div class="overflow-auto">
+  <table class="striped">
+    <thead>
+      <tr>
+        <th scope="col">Numéro</th>
+        <th scope="col">Client</th>
+        <th scope="col">Date</th>
+        <th scope="col">Échéance</th>
+        <th scope="col" class="num">Total TVAC</th>
+        <th scope="col">Statut</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for doc in page.object_list %}
+      <tr>
+        <th scope="row"><a href="{% url 'invoicing:invoice_detail' doc.pk %}">{{ doc }}</a></th>
+        <td>{{ doc.client_name|default:doc.client.display_name }}</td>
+        <td>{{ doc.issue_date|date|default:"—" }}</td>
+        <td>{{ doc.due_date|date|default:"—" }}</td>
+        <td class="num">{{ doc.total_incl_vat|money }}</td>
+        <td>{% include "includes/invoice_status_badge.html" %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "includes/pagination.html" %}
+{% else %}
+  <p class="empty-state">Aucune facture trouvée.</p>
+{% endif %}

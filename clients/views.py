@@ -7,6 +7,7 @@ from clients import services
 from clients.forms import ClientForm, VehicleForm
 from clients.models import Client, ClientType, Vehicle
 from core.services import protected_objects
+from invoicing.services import outstanding_balance
 from storage.models import Booking
 
 PAGE_SIZE = 50
@@ -55,6 +56,8 @@ def client_detail(request, pk):
         "client": client,
         "vehicles": client.vehicles.all(),
         "bookings": bookings.order_by("-start_date"),
+        "invoices": client.invoice_set.all(),
+        "outstanding": outstanding_balance(client),
     }
     return render(request, "clients/client_detail.html", context)
 

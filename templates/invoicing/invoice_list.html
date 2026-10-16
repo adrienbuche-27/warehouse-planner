@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Factures{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <hgroup>
+    <h1>Factures</h1>
+    <p><a href="{% url 'invoicing:credit_note_list' %}">Notes de crédit →</a></p>
+  </hgroup>
+  <a href="{% url 'invoicing:invoice_create' %}" role="button" class="outline">+ Facture manuelle</a>
+</div>
+
+<form method="get" class="filters" hx-get="{% url 'invoicing:invoice_list' %}" hx-target="#results"
+      hx-trigger="input delay:300ms, change, submit" hx-push-url="true">
+  <input type="search" name="q" value="{{ query }}" placeholder="Numéro ou client…" aria-label="Rechercher">
+  <select name="statut" aria-label="Statut">
+    <option value="">Tous les statuts</option>
+    {% for value, label in statuses %}<option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="client" aria-label="Client">
+    <option value="">Tous les clients</option>
+    {% for client in clients %}<option value="{{ client.pk }}" {% if client.pk|stringformat:"s" == client_id %}selected{% endif %}>{{ client.display_name }}</option>{% endfor %}
+  </select>
+  <label class="date-filter">Émise du <input type="date" name="du" value="{{ date_from|date:'Y-m-d' }}"></label>
+  <label class="date-filter">au <input type="date" name="au" value="{{ date_to|date:'Y-m-d' }}"></label>
+  <label><input type="checkbox" name="retard" value="1" {% if overdue_only %}checked{% endif %}> En retard uniquement</label>
+  <noscript><button type="submit">Filtrer</button></noscript>
+</form>
+
+<div id="results">{% include "invoicing/_invoice_results.html" %}</div>
+{% endblock %}

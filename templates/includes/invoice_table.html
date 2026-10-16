@@ -1,0 +1,22 @@
+{% load formatting %}
+{# Invoices of a client or a booking. #}
+{% if invoices %}
+<div class="overflow-auto">
+  <table class="striped">
+    <thead><tr><th scope="col">Numéro</th><th scope="col">Date</th><th scope="col">Échéance</th><th scope="col" class="num">Total TVAC</th><th scope="col">Statut</th></tr></thead>
+    <tbody>
+      {% for doc in invoices %}
+      <tr>
+        <th scope="row"><a href="{% url 'invoicing:invoice_detail' doc.pk %}">{{ doc }}</a></th>
+        <td>{{ doc.issue_date|date|default:"—" }}</td>
+        <td>{{ doc.due_date|date|default:"—" }}</td>
+        <td class="num">{{ doc.total_incl_vat|money }}</td>
+        <td>{% include "includes/invoice_status_badge.html" %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <p class="muted">Aucune facture.</p>
+{% endif %}

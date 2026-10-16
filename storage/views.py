@@ -14,6 +14,7 @@ from clients.models import Client, Vehicle
 from core.forms import BulkRowCreateForm
 from core.models import AppSettings
 from core.pricing import compute_totals
+from invoicing import services as invoicing_services
 from storage import planning as planning_module
 from storage import services
 from storage.forms import BookingForm, ExtendForm, QuickVehicleForm, RowForm, StatusDateForm
@@ -213,6 +214,8 @@ def booking_detail(request, pk, extend_form=None, extension=None):
     booking = get_object_or_404(Booking.objects.select_related("vehicle__client", "row"), pk=pk)
     context = {
         "booking": booking,
+        "invoices": booking.invoices.all(),
+        "uninvoiced_periods": invoicing_services.uninvoiced_periods(booking),
         "move_plans": services.move_plans(booking),
         "date_form": StatusDateForm(),
         "extend_form": extend_form or ExtendForm(initial={"added_periods": 1}),
@@ -266,7 +269,7 @@ def booking_extend(request, pk):
     messages.success(
         request,
         f"Réservation prolongée de {added} période(s), jusqu'au {booking.end_date:%d/%m/%Y}. "
-        "La facture complémentaire pourra être créée avec le module Factures.",
+        "Créez la facture complémentaire dans la section Factures ci-dessous.",
     )
     return redirect("storage:booking_detail", pk=booking.pk)
 

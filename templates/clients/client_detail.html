@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load formatting %}
 
 {% block title %}{{ client.display_name }}{% endblock %}
 
@@ -68,5 +69,12 @@
     {% if not client.is_archived %}<a href="{% url 'storage:booking_create' %}?client={{ client.pk }}" role="button" class="outline">+ Nouvelle réservation</a>{% endif %}
   </header>
   {% include "includes/booking_table.html" with show_vehicle=True %}
+</article>
+<article>
+  <header class="page-header">
+    <h2>Factures</h2>
+    <span>Solde à payer : <strong>{{ outstanding|money }}</strong></span>
+  </header>
+  {% include "includes/invoice_table.html" %}
 </article>
 {% endblock %}

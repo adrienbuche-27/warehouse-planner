@@ -1,0 +1,33 @@
+{% load formatting %}
+{# Lines and totals of an invoice or credit note, on its detail page. #}
+<div class="overflow-auto">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Description</th>
+        <th scope="col">Période de prestation</th>
+        <th scope="col" class="num">Quantité</th>
+        <th scope="col" class="num">Prix unitaire HTVA</th>
+        <th scope="col" class="num">Total HTVA</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in lines %}
+      <tr>
+        <td>{{ line.description }}</td>
+        <td>{% if line.service_start %}du {{ line.service_start|date }} au {{ line.service_end|date }}{% else %}—{% endif %}</td>
+        <td class="num">{{ line.quantity }}</td>
+        <td class="num">{{ line.unit_price_excl_vat|money }}</td>
+        <td class="num">{{ line.line_total_excl_vat|money }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="muted">Aucune ligne.</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><td colspan="4" class="num">Total HTVA</td><td class="num">{{ doc.total_excl_vat|money }}</td></tr>
+      <tr><td colspan="4" class="num">TVA {% if doc.is_franchise %}(franchise){% else %}{{ doc.vat_rate|floatformat:"-2" }} %{% endif %}</td><td class="num">{{ doc.total_vat|money }}</td></tr>
+      <tr><td colspan="4" class="num"><strong>Total TVAC</strong></td><td class="num"><strong>{{ doc.total_incl_vat|money }}</strong></td></tr>
+    </tfoot>
+  </table>
+</div>

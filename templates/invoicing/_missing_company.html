@@ -1,0 +1,7 @@
+{% if missing_company and doc.is_draft %}
+  <article class="notice">
+    Avant d'émettre, complétez les informations de la société dans les
+    <a href="{% url 'core:settings' %}#societe-mentions-sur-factures">Paramètres</a> :
+    {{ missing_company|join:", " }}.
+  </article>
+{% endif %}

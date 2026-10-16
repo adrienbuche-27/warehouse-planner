@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block title %}Notes de crédit{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'invoicing:invoice_list' %}">← Factures</a></p>
+<hgroup>
+  <h1>Notes de crédit</h1>
+  <p>Une note de crédit se crée depuis la facture qu'elle corrige.</p>
+</hgroup>
+{% if page.object_list %}
+<div class="overflow-auto">
+  <table class="striped">
+    <thead><tr><th scope="col">Numéro</th><th scope="col">Facture</th><th scope="col">Client</th><th scope="col">Date</th><th scope="col">Motif</th><th scope="col" class="num">Total TVAC</th></tr></thead>
+    <tbody>
+      {% for doc in page.object_list %}
+      <tr>
+        <th scope="row"><a href="{% url 'invoicing:credit_note_detail' doc.pk %}">{{ doc }}</a></th>
+        <td><a href="{% url 'invoicing:invoice_detail' doc.invoice.pk %}">{{ doc.invoice.number }}</a></td>
+        <td>{{ doc.invoice.client_name }}</td>
+        <td>{{ doc.issue_date|date|default:"—" }}</td>
+        <td>{{ doc.reason }}</td>
+        <td class="num">{{ doc.total_incl_vat|money }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "includes/pagination.html" %}
+{% else %}
+  <p class="empty-state">Aucune note de crédit.</p>
+{% endif %}
+{% endblock %}

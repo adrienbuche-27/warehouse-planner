@@ -373,3 +373,17 @@ td.dimmed { opacity: 0.35; }
 .overflow-auto {
   position: relative;
 }
+
+/* Invoices */
+.num { text-align: right; white-space: nowrap; }
+.invoice-draft { background: #eeeeee; color: #555; }
+.invoice-issued { background: #e3f2fd; color: #0d47a1; }
+.invoice-paid { background: #e8f5e9; color: #1b5e20; }
+.invoice-cancelled { background: #fbe9e7; color: #8d2a14; }
+.invoice-overdue { background: #ffcdd2; color: #8d1414; font-weight: 600; }
+table.lines-edit input { margin-bottom: 0; padding: 0.3rem 0.5rem; height: auto; }
+table.lines-edit td { vertical-align: top; }
+table.lines-edit td:first-child { min-width: 22rem; }
+.payment-form button { width: auto; }
+button.small { width: auto; }
+fieldset[role="group"] button { white-space: nowrap; }

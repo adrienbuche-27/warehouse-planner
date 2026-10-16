@@ -27,7 +27,7 @@
         <li><a href="{% url 'storage:booking_list' %}" {% if nav_section == 'bookings' %}aria-current="page"{% endif %}>Réservations</a></li>
         <li><a href="{% url 'clients:client_list' %}" {% if nav_section == 'clients' %}aria-current="page"{% endif %}>Clients</a></li>
         <li><a href="{% url 'clients:vehicle_list' %}" {% if nav_section == 'vehicles' %}aria-current="page"{% endif %}>Véhicules</a></li>
-        <li><a aria-disabled="true" title="Disponible prochainement">Factures</a></li>
+        <li><a href="{% url 'invoicing:invoice_list' %}" {% if nav_section == 'invoices' %}aria-current="page"{% endif %}>Factures</a></li>
         <li><a href="{% url 'core:settings' %}" {% if nav_section == 'settings' %}aria-current="page"{% endif %}>Paramètres</a></li>
       </ul>
       <ul>
