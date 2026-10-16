@@ -526,6 +526,12 @@ a.map-line:focus-visible { outline: 2px solid var(--pico-primary); outline-offse
 a.map-vehicle:hover { background: #1d5fae; color: #fff; }
 .map-vehicle.status-reserved { background: #9cc3f0; color: #0d2b52; }
 .map-vehicle.partial { opacity: 0.55; outline: 1px dashed #0d2b52; outline-offset: -2px; }
+/* Plan de l'entrepôt: vehicle boxed in when entering or leaving during the shown dates */
+.map-vehicle.blocked { box-shadow: inset 0 0 0 2px var(--app-warn); }
+.map-blocked { color: #ffd08a; font-weight: 700; }
+.map-vehicle.status-reserved .map-blocked,
+.map-vehicle.partial .map-blocked { color: var(--app-warn); }
+.map-dates-form small { display: block; color: var(--pico-muted-color); }
 .map-pos {
   font-weight: 700;
   background: rgba(255, 255, 255, 0.25);
@@ -558,3 +564,19 @@ a.map-vehicle:hover { background: #1d5fae; color: #fff; }
 }
 .map-vehicle-sample.status-reserved { background: #9cc3f0; }
 .map-vehicle-sample.partial { opacity: 0.55; outline: 1px dashed #0d2b52; outline-offset: -2px; }
+
+/* Printing "Plan de l'entrepôt" (button "Imprimer"): the map only, colours kept. */
+@media print {
+  header.site-header, .no-print, .message, button, [role="button"],
+  .planning-toolbar, form { display: none !important; }
+  body { font-size: 10pt; }
+  main.container { max-width: none; padding: 0; }
+  .warehouse-map, .map-strip, .map-vehicle, .map-vehicle-sample {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .map-row { break-inside: avoid; }
+  .map-head { position: static; }
+  .map-free:hover { background: none; }
+  a.map-vehicle { text-decoration: none; }
+}

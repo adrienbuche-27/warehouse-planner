@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 from django.urls import reverse
 
+from storage import services
 from storage.models import BookingStatus
 from storage.warehouse_map import RowStatus, build_map
 from tests.factories import FLAT_PRICE, make_booking, make_row, make_vehicle, set_settings
@@ -155,6 +156,9 @@ def test_booking_map_when_the_vehicle_is_already_booked(admin_client):
     assert "data-row=" not in content  # nothing to pick
 
 
+# --- "Plan de l'entrepôt": space management ------------------------------------------
+
+
 def test_warehouse_map_page(admin_client):
     row = make_row("R01")
     booking = make_booking(row, 1, MAR_1, periods=1, length="8.00")
@@ -165,36 +169,100 @@ def test_warehouse_map_page(admin_client):
     assert reverse("storage:booking_detail", args=[booking.pk]) in content
     new_here = f"{reverse('storage:booking_create')}?rangee={row.pk}&amp;debut=2027-03-05"
     assert new_here in content
-    assert "?date=2027-02-26" in content and "?date=2027-03-12" in content  # ± 7 days
-    assert "data-row=" not in content  # read-only: nothing to pick
+    assert '"?date=2027-02-26"' in content and '"?date=2027-03-12"' in content  # ± 7 days
+    assert "data-row=" not in content and "map-mark" not in content  # no van to place here
+    assert "window.print()" in content
+    assert reverse("storage:booking_find") in content  # placing a van is the other page
     assert 'aria-current="page"' in content and ">Planning<" in content
 
 
 def test_warehouse_map_page_defaults_to_today_and_is_linked_from_planning(admin_client):
     response = admin_client.get(reverse("storage:planning_map"), {"date": "pas une date"})
-    assert response.context["day"] == response.context["today"]
+    assert response.context["day"] == response.context["end"] == services.today()
     content = admin_client.get(reverse("storage:planning")).content.decode()
     assert reverse("storage:planning_map") in content
 
 
-# --- Finding a place for a van over a stay ------------------------------------------
+def test_warehouse_map_page_over_a_range_of_dates(admin_client):
+    row = make_row("R01")
+    make_booking(row, 1, MAR_1, periods=1, length="6.00")
+    make_booking(row, 1, D(2027, 3, 15), periods=1, length="8.00")
+    url = reverse("storage:planning_map")
+    response = admin_client.get(url, {"date": "2027-03-01", "au": "2027-03-31"})
+    content = response.content.decode()
+    assert "Du 01/03/2027 au 31/03/2027 : 2 véhicules présents à un moment" in content
+    assert response.context["map"].end == D(2027, 3, 31)
+    # The 7-day buttons keep the length of the range.
+    assert '"?date=2027-02-22&amp;au=2027-03-24"' in content
+    assert '"?date=2027-03-08&amp;au=2027-04-07"' in content
 
 
-def test_map_page_over_a_stay_for_a_length(admin_client):
+@pytest.mark.parametrize(
+    ("end", "message"),
+    [("2027-02-01", "antérieure"), ("2028-06-01", "un an au maximum")],
+)
+def test_warehouse_map_page_refuses_bad_ranges(admin_client, end, message):
+    url = reverse("storage:planning_map")
+    response = admin_client.get(url, {"date": "2027-03-01", "au": end})
+    assert message in response.content.decode()
+    assert response.context["end"] == D(2027, 3, 1)  # one day shown instead
+
+
+def test_warehouse_map_page_highlights_boxed_in_vehicles():
+    row = make_row("R01")
+    deep = make_booking(row, 2, MAR_1, periods=1, vehicle=make_vehicle(plate="AB-123"))
+    aisle = make_booking(row, 1, MAR_1, periods=2, vehicle=make_vehicle(plate="XY-987"))
+    in_march = build_map(MAR_1, D(2027, 3, 31), with_blockings=True)
+    r = map_row(in_march, row)
+    [plan] = r.move_plans
+    assert plan.booking == deep and plan.blockers == [aisle]
+    assert "Pour sortir AB-123 (position 2) le 14/03/2027 : déplacer d'abord XY-987" in (
+        plan.as_text()
+    )
+    blocked = {v.booking: v.blocked for p in r.positions for v in p.vehicles}
+    assert blocked == {aisle: False, deep: True}
+    # Outside the dates of the exit, nothing to report.
+    assert map_row(build_map(D(2027, 3, 1), with_blockings=True), row).move_plans == []
+
+
+def test_warehouse_map_page_lists_the_moves(admin_client):
+    row = make_row("R01")
+    make_booking(row, 2, MAR_1, periods=1, vehicle=make_vehicle(plate="AB-123"))
+    make_booking(row, 1, MAR_1, periods=2, vehicle=make_vehicle(plate="XY-987"))
+    url = reverse("storage:planning_map")
+    content = admin_client.get(url, {"date": "2027-03-01", "au": "2027-03-31"}).content.decode()
+    assert "1 blocage en R01" in content and "status-reserved partial blocked" in content
+    assert "Pour sortir AB-123 (position 2) le 14/03/2027" in content
+
+
+# --- "Trouver un emplacement": placing a van for a booking ------------------------------
+
+
+def test_find_page_is_reached_from_the_bookings(admin_client):
+    content = admin_client.get(reverse("storage:booking_list")).content.decode()
+    assert reverse("storage:booking_find") in content
+    response = admin_client.get(reverse("storage:booking_find"))
+    assert "<h1>Trouver un emplacement</h1>" in response.content.decode()
+    assert "map" not in response.context  # nothing searched yet
+    assert 'aria-current="page"' in response.content.decode()
+
+
+def test_find_a_place_for_a_length(admin_client):
     row = make_row("R01")
     make_booking(row, 1, MAR_1, periods=1, length="8.00")
     full = make_row("R02")
     make_booking(full, 1, MAR_1, periods=1, length="8.00")
     make_booking(full, 2, MAR_1, periods=1, length="7.50")
-    url = reverse("storage:planning_map")
+    roomy = make_row("R03")
     params = {"date": "2027-03-01", "periodes": "2", "longueur": "7,40"}
-    response = admin_client.get(url, params)
+    response = admin_client.get(reverse("storage:booking_find"), params)
     content = response.content.decode()
-    assert "Du 01/03/2027 au 28/03/2027 (2 périodes)" in content
-    assert "Pour un véhicule de 7,40" in content
+    assert "du 01/03/2027 au 28/03/2027" in content and "un véhicule de 7,40" in content
+    # Ranked list first: the tighter fit (R01) before the empty row.
+    assert [(s.row, s.position) for s in response.context["best"]] == [(row, 2), (roomy, 1)]
+    assert content.count("Réserver ici") == 2
     rows = {r.row.code: r for r in response.context["map"].rows}
-    assert rows["R01"].status == RowStatus.FITS and rows["R01"].position == 2
-    assert rows["R02"].status == RowStatus.FULL
+    assert rows["R01"].status == RowStatus.FITS and rows["R02"].status == RowStatus.FULL
     booking_link = (
         f"{reverse('storage:booking_create')}?rangee={row.pk}&amp;position=2"
         "&amp;debut=2027-03-01&amp;periodes=2"
@@ -203,47 +271,57 @@ def test_map_page_over_a_stay_for_a_length(admin_client):
     assert f"rangee={full.pk}&amp;position" not in content  # no link where it does not fit
 
 
-def test_map_page_for_a_registered_vehicle_links_it_to_the_booking(admin_client):
+def test_find_a_place_for_a_registered_vehicle(admin_client):
     row = make_row("R01")
     vehicle = make_vehicle(length_m=Decimal("7.00"))
     params = {"date": "2027-03-01", "periodes": "1", "vehicule": vehicle.pk, "longueur": "3"}
-    response = admin_client.get(reverse("storage:planning_map"), params)
+    response = admin_client.get(reverse("storage:booking_find"), params)
     assert response.context["map"].vehicle == vehicle  # the vehicle wins over the length
-    assert (
-        f"rangee={row.pk}&amp;position=1&amp;debut=2027-03-01&amp;periodes=1&amp;vehicule={vehicle.pk}"
-        in (response.content.decode())
+    expected = (
+        f"rangee={row.pk}&amp;position=1&amp;debut=2027-03-01&amp;periodes=1"
+        f"&amp;vehicule={vehicle.pk}"
     )
+    assert expected in response.content.decode()
 
 
-def test_map_page_conflict_rows_explain_the_moves(admin_client):
+def test_find_explains_the_moves(admin_client):
     row = make_row("R01")
     aisle = make_vehicle(plate="XY-987", length_m=Decimal("5.00"))
     make_booking(row, 1, MAR_1, periods=3, vehicle=aisle)
     for position in (2, 3):
         make_booking(row, position, MAR_1, periods=3, length="1.00")
     params = {"date": "2027-03-01", "periodes": "1", "longueur": "7"}
-    content = admin_client.get(reverse("storage:planning_map"), params).content.decode()
-    assert "Déplacements nécessaires en R01" in content
-    assert "Pour sortir le nouveau véhicule (position 4)" in content and "XY-987" in content
+    content = admin_client.get(reverse("storage:booking_find"), params).content.decode()
+    assert "Déplacements nécessaires en R01" in content and "gêné par XY-987" in content
+    assert "Pour sortir le nouveau véhicule (position 4)" in content
 
 
-def test_map_page_asks_for_periods_and_ignores_bad_values(admin_client):
-    url = reverse("storage:planning_map")
-    content = admin_client.get(url, {"longueur": "7,4"}).content.decode()
-    assert "Indiquez le nombre de périodes" in content
-    for bad in ["abc", "-2", "0", "25", "nan", "inf"]:
-        response = admin_client.get(url, {"periodes": "1", "longueur": bad})
-        assert response.status_code == 200 and response.context["map"].vehicle is None
+@pytest.mark.parametrize(
+    ("params", "message"),
+    [
+        ({"date": "2027-03-01", "longueur": "7,4"}, "Indiquez le nombre de périodes"),
+        ({"date": "2027-03-01", "periodes": "1"}, "Indiquez la longueur du véhicule"),
+        ({"date": "2027-03-01", "periodes": "1", "longueur": "abc"}, "Longueur invalide"),
+        ({"date": "2027-03-01", "periodes": "1", "longueur": "25"}, "Longueur invalide"),
+        ({"date": "2027-03-01", "periodes": "1", "longueur": "nan"}, "Longueur invalide"),
+        ({"date": "2027-03-01", "periodes": "0", "longueur": "7"}, "Indiquez le nombre de"),
+    ],
+)
+def test_find_reports_missing_or_bad_values(admin_client, params, message):
+    response = admin_client.get(reverse("storage:booking_find"), params)
+    assert message in response.content.decode()
+    assert "map" not in response.context
 
 
-def test_map_page_for_an_already_booked_vehicle(admin_client):
+def test_find_for_an_already_booked_vehicle(admin_client):
     booking = make_booking(make_row("R01"), 1, MAR_1, periods=1)
     params = {"date": "2027-03-01", "periodes": "1", "vehicule": booking.vehicle_id}
-    content = admin_client.get(reverse("storage:planning_map"), params).content.decode()
+    content = admin_client.get(reverse("storage:booking_find"), params).content.decode()
     assert "est déjà réservé sur cette période" in content
+    assert "Réserver ici" not in content
 
 
-def test_booking_form_prefilled_from_the_map(admin_client):
+def test_booking_form_prefilled_from_the_search(admin_client):
     row, vehicle = make_row("R04"), make_vehicle()
     params = {
         "rangee": row.pk,
@@ -254,6 +332,5 @@ def test_booking_form_prefilled_from_the_map(admin_client):
     }
     form = admin_client.get(reverse("storage:booking_create"), params).context["form"]
     assert form.initial["position"] == "3" and form.initial["periods"] == "4"
-    assert (
-        form.initial["vehicle"] == str(vehicle.pk) and form.initial["client"] == vehicle.client_id
-    )
+    assert form.initial["vehicle"] == str(vehicle.pk)
+    assert form.initial["client"] == vehicle.client_id

@@ -1,5 +1,6 @@
 import datetime
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -452,38 +453,86 @@ def planning(request):
     return render(request, "storage/planning.html", context)
 
 
+MAX_PLAN_DAYS = 366  # longest range shown on "Plan de l'entrepôt"
+
+
 def planning_map(request):
-    """ "Plan de l'entrepôt": who is where on a day (today by default), or over a stay of N
-    periods. With a length or a vehicle, each row says whether that van fits there, and a
-    click opens the booking form for that place."""
+    """ "Plan de l'entrepôt" (space management): who is where on a day (today by default) or
+    over a range of dates, with the vehicles boxed in when entering or leaving."""
     today = services.today()
     day = _parse_date(request.GET.get("date")) or today
+    end = _parse_date(request.GET.get("au"))
+    error = ""
+    if end is not None and end < day:
+        error, end = (
+            "La date de fin est antérieure à la date de début : un seul jour est affiché.",
+            None,
+        )
+    elif end is not None and (end - day).days > MAX_PLAN_DAYS:
+        error, end = "Période trop longue (un an au maximum) : un seul jour est affiché.", None
+    end = end or day
+    span = end - day
+
+    def link(first):  # same length of time, shifted
+        params = {"date": first.isoformat()}
+        if span:
+            params["au"] = (first + span).isoformat()
+        return "?" + urlencode(params)
+
+    week = datetime.timedelta(days=7)
+    context = {
+        "map": warehouse_map.build_map(day, end, with_blockings=True),
+        "day": day,
+        "end": end,
+        "is_range": bool(span),
+        "error": error,
+        "nav": {"back": link(day - week), "today": link(today), "forward": link(day + week)},
+    }
+    return render(request, "storage/warehouse_map.html", context)
+
+
+def booking_find(request):
+    """ "Trouver un emplacement": where to book a van (a registered vehicle, or just a length)
+    for a stay, before creating the booking. Each place links to the prefilled booking form."""
+    searched = "date" in request.GET
+    day = _parse_date(request.GET.get("date")) or services.today()
     periods = request.GET.get("periodes", "")
     periods = int(periods) if periods.isdigit() and 0 < int(periods) <= 100 else None
     vehicle = Vehicle.objects.filter(pk=request.GET.get("vehicule") or 0).first()
-    length = _parse_decimal(request.GET.get("longueur"))
+    raw_length = request.GET.get("longueur", "").strip()
+    length = _parse_decimal(raw_length)
     if length is not None and length > MAX_VEHICLE_LENGTH:
         length = None
+
+    errors = []
+    if searched and periods is None:
+        errors.append("Indiquez le nombre de périodes (de 1 à 100).")
+    if searched and vehicle is None:
+        if raw_length and length is None:
+            errors.append("Longueur invalide : indiquez une longueur entre 0,01 et 20 m.")
+        elif length is None:
+            errors.append("Indiquez la longueur du véhicule ou choisissez un véhicule enregistré.")
     van = vehicle or (warehouse_map.planned_vehicle(length) if length else None)
 
-    end = compute_end_date(day, periods, AppSettings.load().period_days) if periods else day
-    week = datetime.timedelta(days=7)
     context = {
-        "map": warehouse_map.build_map(day, end, van if periods else None),
         "day": day,
-        "end": end,
-        "today": today,
         "periods": periods,
         "length": length,
+        "raw_length": raw_length if vehicle is None else "",
         "vehicle": vehicle,
-        "van": van,
         "vehicles": Vehicle.objects.active().select_related("client"),
-        "already_booked": bool(
-            vehicle and periods and services.vehicle_conflicts(vehicle, day, end)
-        ),
-        "nav": {"back": day - week, "forward": day + week},
+        "errors": errors,
     }
-    return render(request, "storage/warehouse_map.html", context)
+    if van is not None and periods is not None:
+        end = compute_end_date(day, periods, AppSettings.load().period_days)
+        found = warehouse_map.build_map(day, end, van)
+        context.update(
+            end=end,
+            map=found,
+            best=found.suggestions[:5],
+            already_booked=bool(vehicle and services.vehicle_conflicts(vehicle, day, end)),
+        )
+    return render(request, "storage/booking_find.html", context)
 
 
 def planning_cell(request, row_pk, start):

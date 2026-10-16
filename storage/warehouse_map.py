@@ -8,7 +8,10 @@ its length. The map is shown:
   of the stay is drawn (those present only part of the time are marked `partial`), the free
   metres are those at the busiest moment, and each row says whether the new vehicle fits
   there (see `RowStatus`) and at which position;
-- on the "Plan de l'entrepôt" page, for one day.
+- on the "Trouver un emplacement" page, the same for a van not booked yet (or known only by
+  its length), to choose where to book it;
+- on the "Plan de l'entrepôt" page (space management), for one day or a range of dates, with
+  the vehicles boxed in when entering or leaving during those dates and their move plans.
 
 Everything comes from one query on the bookings plus `suggest_placements`, then is computed
 in memory.
@@ -21,10 +24,14 @@ from decimal import Decimal
 
 from clients.models import Vehicle
 from core.models import AppSettings
-from storage.models import Booking, Row
+from storage.models import Booking, BookingStatus, Row
 from storage.planning import occupancy_level
 from storage.services import (
+    ENTRY,
+    EXIT,
+    MovePlan,
     Slot,
+    find_blockers,
     occupancy_timeline,
     placement_warnings,
     suggest_placements,
@@ -53,6 +60,7 @@ class MapVehicle:
     booking: Booking
     width: str  # CSS percentage of its position's width
     partial: bool  # present only during part of the shown dates
+    blocked: bool = False  # boxed in when entering or leaving during the shown dates
 
 
 @dataclass
@@ -72,7 +80,9 @@ class MapRow:
     width: str  # CSS percentage of the longest row, so shorter rows look shorter
     peak_m: Decimal
     positions: list[MapPosition] = field(default_factory=list)
-    # Booking form only:
+    # "Plan de l'entrepôt" only: what to move for the boxed-in vehicles, in date order.
+    move_plans: list[MovePlan] = field(default_factory=list)
+    # Booking form and "Trouver un emplacement" only:
     status: str = ""
     starred: bool = False
     position: int | None = None  # best position for the new vehicle in this row
@@ -97,6 +107,8 @@ class WarehouseMap:
     end: datetime.date
     rows: list[MapRow]
     vehicle: Vehicle | None = None
+    # With a vehicle: every place where it fits, best first (storage.services.Suggestion).
+    suggestions: list = field(default_factory=list)
 
     @property
     def vehicle_count(self) -> int:
@@ -129,12 +141,15 @@ def build_map(
     end: datetime.date | None = None,
     vehicle: Vehicle | None = None,
     exclude_booking: Booking | None = None,
+    with_blockings: bool = False,
 ) -> WarehouseMap:
     """The map for [start, end] (one day when `end` is omitted).
 
-    With `vehicle` (the booking form), each row also gets its status for that vehicle, its
-    best position and, when vehicles must be moved, the move plan. `exclude_booking` is the
-    booking being edited: it is left out, as in the fit check.
+    With `vehicle` (booking form, "Trouver un emplacement"), each row also gets its status for
+    that vehicle, its best position and, when vehicles must be moved, the move plan.
+    `exclude_booking` is the booking being edited: it is left out, as in the fit check.
+    With `with_blockings` ("Plan de l'entrepôt"), the vehicles boxed in during the dates are
+    marked and each row lists their move plans.
     """
     end = end or start
     app_settings = AppSettings.load()
@@ -165,19 +180,23 @@ def build_map(
             (used for _, _, used in occupancy_timeline(slots, start, end, gap)),
             default=Decimal("0"),
         )
-        map_rows.append(
-            MapRow(
-                row=row,
-                length_m=length,
-                width=_percent(length, longest),
-                peak_m=peak,
-                positions=_positions(row_bookings, length, start, end),
-            )
+        map_row = MapRow(
+            row=row,
+            length_m=length,
+            width=_percent(length, longest),
+            peak_m=peak,
+            positions=_positions(row_bookings, length, start, end),
         )
+        if with_blockings:
+            _add_blockings(map_row, slots, start, end)
+        map_rows.append(map_row)
 
+    suggestions = []
     if vehicle is not None:
-        _add_statuses(map_rows, vehicle, start, end, exclude_booking)
-    return WarehouseMap(start=start, end=end, rows=map_rows, vehicle=vehicle)
+        suggestions = _add_statuses(map_rows, vehicle, start, end, exclude_booking)
+    return WarehouseMap(
+        start=start, end=end, rows=map_rows, vehicle=vehicle, suggestions=suggestions
+    )
 
 
 def _positions(row_bookings, row_length, start, end) -> list[MapPosition]:
@@ -199,8 +218,36 @@ def _positions(row_bookings, row_length, start, end) -> list[MapPosition]:
     return positions
 
 
-def _add_statuses(map_rows, vehicle, start, end, exclude_booking) -> None:
-    """Row status, best position and move plan for the vehicle being booked."""
+def _add_blockings(map_row: MapRow, slots: list[Slot], start, end) -> None:
+    """Entries and exits during [start, end] that are boxed in, with their move plans.
+
+    The slots are all the active bookings of the row present during the dates, which includes
+    every possible blocker (a blocker is present on the day of the entry or exit). A vehicle
+    already in stock has no entry left to plan, as in `services.move_plans`.
+    """
+    plans = []
+    for slot in slots:
+        booking = slot.booking
+        others = [other for other in slots if other is not slot]
+        events = []
+        if booking.status == BookingStatus.RESERVED and start <= booking.start_date <= end:
+            events.append(ENTRY)
+        if start <= booking.end_date <= end:
+            events.append(EXIT)
+        for event in events:
+            blockers = [blocker.booking for blocker in find_blockers(slot, others, event)]
+            if blockers:
+                plans.append(MovePlan(booking, event, blockers))
+    map_row.move_plans = sorted(plans, key=lambda plan: plan.date)
+    blocked = {plan.booking.pk for plan in plans}
+    for position in map_row.positions:
+        for vehicle in position.vehicles:
+            vehicle.blocked = vehicle.booking.pk in blocked
+
+
+def _add_statuses(map_rows, vehicle, start, end, exclude_booking) -> list:
+    """Row status, best position and move plan for the vehicle being booked. Returns the
+    suggestions (every place where it fits, best first)."""
     suggestions = suggest_placements(vehicle, start, end, exclude_booking)
     starred = {s.row.pk for s in suggestions[:STARRED_SUGGESTIONS]}
     best = {}
@@ -220,3 +267,4 @@ def _add_statuses(map_rows, vehicle, start, end, exclude_booking) -> None:
             )
         else:
             map_row.status = RowStatus.FITS
+    return suggestions

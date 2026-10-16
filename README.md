@@ -144,15 +144,20 @@ or templates, so it can be unit-tested.
   réservation ici". "Espace libre min." keeps rows with that much free space in at least one
   window and dims the other windows.
 - **Warehouse map** (`storage/warehouse_map.py`): one strip per row, aisle on the left, each
-  vehicle sized to its length by position. "Plan de l'entrepôt" (from the Planning page) shows
-  one day: click a vehicle for its booking, or a row's free space to book there. Its
-  "Trouver un emplacement" form takes a start date, a number of periods and a length or a
-  vehicle: rows are then marked as in the booking form, and clicking one opens the booking form
-  prefilled (`?rangee=&position=&debut=&periodes=&vehicule=`). A van known only by its length is
-  an unsaved `Vehicle` (`warehouse_map.planned_vehicle`). The booking
-  form shows it for the stay being booked (vehicles using a position one after another are
-  stacked; free metres at the busiest moment) with ✓ / ★ / ⚠ / ✗ per row; clicking a row fills
-  "Rangée" and "Position" with the best place in it (the fit check still applies on save).
+  vehicle sized to its length by position (vehicles using a position one after another are
+  stacked; free metres at the busiest moment). It is used by three screens, kept separate:
+  - **"Plan de l'entrepôt"** (Planning › Plan de l'entrepôt, `storage:planning_map`), space
+    management: one day or "du … au …" (one year at most). Vehicles boxed in when entering or
+    leaving during those dates get ⚠ and each row lists the move plans. Click a vehicle for its
+    booking, a row's free space to book there. "Imprimer" prints the map (CSS `@media print`).
+  - **"Trouver un emplacement"** (Réservations › Trouver un emplacement,
+    `storage:booking_find`), placing one van before booking it: start date, periods, and a
+    length or a registered vehicle. It lists the 5 best places ("Réserver ici"), then the map
+    with ✓ / ★ / ⚠ / ✗ per row. Both open the booking form prefilled
+    (`?rangee=&position=&debut=&periodes=&vehicule=`). A van known only by its length is an
+    unsaved `Vehicle` (`warehouse_map.planned_vehicle`).
+  - **The booking form** shows the map for the stay being booked; clicking a row fills
+    "Rangée" and "Position" with the best place in it (the fit check still applies on save).
 - **Invoices** (`invoicing/services.py`) follow CLAUDE.md section 8, to be validated by the
   accountant before go-live:
   - "Créer la facture" on a booking makes a draft for its periods not invoiced yet (after

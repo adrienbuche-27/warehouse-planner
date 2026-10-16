@@ -36,6 +36,7 @@ urlpatterns = [
         views.booking_suggestions,
         name="booking_suggestions",
     ),
+    path("reservations/emplacement/", views.booking_find, name="booking_find"),
     path("reservations/aide/plan/", views.booking_map, name="booking_map"),
     path(
         "reservations/aide/nouveau-client/",
