@@ -17,7 +17,7 @@ storage ends.
 | M3 | Booking engine: fit check, boxed-in detection, suggestions, booking screens | Done |
 | M4 | Planning grid: rows × 2-week windows, cell details, free-space filter | Done |
 | M5 | Invoicing: drafts, gap-free numbering, PDF, payments, credit notes, email | Done |
-| M6 | Reminders | To do |
+| M6 | Reminders: daily email command, client and admin notices, blocked-entry digest | Done |
 | M7 | Dashboard | To do |
 | M8 | Deployment kit | To do |
 
@@ -84,7 +84,7 @@ core/         Shared code: dashboard, formatting helpers (money as "1 234,56 €
 clients/      Clients and vehicles, search (clients/services.py)
 storage/      Rows, bookings, planning; rules in storage/services.py and storage/planning.py
 invoicing/    Invoices, credit notes, numbering, PDF and email (invoicing/services.py)
-reminders/    Reminder emails and the send_reminders command (M6)
+reminders/    ReminderLog, send_reminders command (reminders/services.py)
 templates/    HTML templates (French), including the login pages in registration/
 static/       Pico.css, HTMX and project CSS, vendored (no build step, no CDN)
 tests/        pytest test suite
@@ -142,6 +142,17 @@ or templates, so it can be unit-tested.
     the whole invoice, the invoice becomes "Annulée".
   - The PDF layout and legal wording are in `templates/invoicing/invoice_pdf.html`; the email
     text is in `templates/invoicing/email_document.txt`.
+- **Reminders** (`reminders/services.py`): `python manage.py send_reminders` must run once a
+  day (08:00; the systemd timer comes with M8). For every active booking ending within
+  "délai du rappel" days (Paramètres), it emails the client (editable text in Paramètres →
+  Rappels) and the admins (with the move plan when the exit is blocked). It also sends the admins
+  one digest per day when reservations starting in the next 14 days have a blocked entry.
+  - Safe to run several times: a reminder already sent successfully is never sent again
+    (`ReminderLog`). If the job did not run for a few days, the next run catches up.
+  - Failures are logged with the error and retried on the next run; the history is shown on each
+    booking page.
+  - `--dry-run` shows what would be sent without sending; `--date AAAA-MM-JJ` acts as if today
+    were that date (handy to check what the job will do).
 - **Settings that shrink rows** (shorter default length or override, bigger gap) list the
   current and future bookings that would no longer fit and ask "Enregistrer quand même".
   A row with current or future bookings cannot be deactivated. Nothing is moved automatically.
