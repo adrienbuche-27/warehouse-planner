@@ -219,3 +219,53 @@ def test_vehicle_dropdown_changes_tell_the_form_to_recompute_the_price(admin_cli
     assert response["HX-Trigger-After-Settle"] == "vehicle-selected"
     content = admin_client.get(reverse("storage:booking_create")).content.decode()
     assert "vehicle-selected from:body" in content and "#id_vehicle" in content
+
+
+# --- A longer vehicle may no longer fit in its row ---------------------------------
+
+
+def test_longer_vehicle_that_no_longer_fits_is_reported():
+    set_settings(default_row_length_m=Decimal("16.00"), vehicle_gap_m=Decimal("0.50"))
+    row = make_row()
+    vehicle = make_vehicle(length_m=Decimal("7.40"))
+    booking = make_booking(row, 1, MAR_1, periods=2, vehicle=vehicle)
+    neighbour = make_booking(row, 2, MAR_1, periods=1, length="8.00")
+    assert services.bookings_not_fitting_with_length(vehicle, Decimal("7.50")) == []
+    [overflow] = services.bookings_not_fitting_with_length(vehicle, Decimal("7.60"))
+    assert overflow.booking == booking
+    assert overflow.fit.peak_occupancy_m == Decimal("16.10")  # 7,60 + 0,50 + 8,00
+    assert overflow.fit.length_conflicts == [neighbour]
+
+
+def test_vehicle_form_asks_to_confirm_a_length_that_no_longer_fits(admin_client):
+    set_settings(default_row_length_m=Decimal("16.00"), vehicle_gap_m=Decimal("0.50"))
+    row = make_row("R07")
+    vehicle = make_vehicle(length_m=Decimal("7.40"))
+    make_booking(row, 1, MAR_1, periods=2, vehicle=vehicle)
+    make_booking(row, 2, MAR_1, periods=1, vehicle=make_vehicle(plate="XY-987-ZZ"))
+    url = reverse("clients:vehicle_edit", args=[vehicle.pk])
+
+    response = admin_client.post(url, vehicle_data(vehicle, length_m="9.00"))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "ne tiendrait plus dans sa rangée" in content
+    assert (
+        "R07 pos. 1" in content and "XY-987-ZZ" in content and "Enregistrer quand même" in content
+    )
+    vehicle.refresh_from_db()
+    assert vehicle.length_m == Decimal("7.40")  # nothing saved yet
+
+    data = vehicle_data(vehicle, length_m="9.00", confirm_overflow="1")
+    assert admin_client.post(url, data).status_code == 302
+    vehicle.refresh_from_db()
+    assert vehicle.length_m == Decimal("9.00")
+
+
+def test_shorter_vehicle_or_past_bookings_need_no_confirmation(admin_client):
+    set_settings(default_row_length_m=Decimal("16.00"), vehicle_gap_m=Decimal("0.50"))
+    row = make_row()
+    vehicle = make_vehicle(length_m=Decimal("7.40"))
+    make_booking(row, 1, datetime.date(2020, 3, 2), periods=1, vehicle=vehicle)
+    make_booking(row, 2, datetime.date(2020, 3, 2), periods=1, length="8.00")
+    url = reverse("clients:vehicle_edit", args=[vehicle.pk])
+    assert admin_client.post(url, vehicle_data(vehicle, length_m="9.00")).status_code == 302

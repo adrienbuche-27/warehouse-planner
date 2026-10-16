@@ -145,8 +145,15 @@ def vehicle_detail(request, pk):
 
 def vehicle_edit(request, pk):
     vehicle = get_object_or_404(Vehicle, pk=pk)
+    saved_length = vehicle.length_m  # the form writes the new values into `vehicle`
     form = VehicleForm(request.POST or None, instance=vehicle)
+    overflows = []
     if form.is_valid():
+        # A longer vehicle may no longer fit in the rows it is booked in: ask first.
+        new_length = form.cleaned_data["length_m"]
+        if new_length > saved_length and not request.POST.get("confirm_overflow"):
+            overflows = storage_services.bookings_not_fitting_with_length(vehicle, new_length)
+    if form.is_valid() and not overflows:
         form.save()
         messages.success(request, "Véhicule enregistré.")
         # The price depends on the length: recalculate the bookings not invoiced yet.
@@ -154,7 +161,14 @@ def vehicle_edit(request, pk):
             level = messages.INFO if change.applied else messages.WARNING
             messages.add_message(request, level, change.as_text())
         return redirect("clients:vehicle_detail", pk=vehicle.pk)
-    return render(request, "clients/vehicle_form.html", {"form": form, "vehicle": vehicle})
+    if overflows:
+        messages.warning(
+            request,
+            "Avec cette longueur, le véhicule ne tiendrait plus dans sa rangée. "
+            "Vérifiez la liste ci-dessous.",
+        )
+    context = {"form": form, "vehicle": vehicle, "overflows": overflows}
+    return render(request, "clients/vehicle_form.html", context)
 
 
 @require_POST

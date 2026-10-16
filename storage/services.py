@@ -12,7 +12,7 @@ and hypothetical ones (a booking being created or moved, a row being shortened).
 import datetime
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 
 from django.db import transaction
@@ -645,6 +645,30 @@ def bookings_not_fitting(
             if used > length:
                 affected.extend(slot.booking for slot in present if slot.booking not in affected)
     return sorted(affected, key=lambda b: (b.row.display_order, b.start_date, b.position))
+
+
+@dataclass
+class LengthOverflow:
+    """A booking of a vehicle that would no longer fit in its row with a new length."""
+
+    booking: Booking
+    fit: FitResult
+
+
+def bookings_not_fitting_with_length(vehicle: Vehicle, new_length: Decimal) -> list[LengthOverflow]:
+    """Current and future active bookings of `vehicle` that would no longer fit in their row
+    if the vehicle were `new_length` long (from today on). Nothing is saved or changed."""
+    app_settings = AppSettings.load()
+    overflows = []
+    for booking in current_and_future_bookings().filter(vehicle=vehicle):
+        start = max(today(), booking.start_date)
+        candidate = replace(Slot.of(booking), start=start, length=new_length)
+        others = _active_slots(booking.row, start, booking.end_date, booking)
+        row_length = booking.row.effective_length_for(app_settings)
+        fit = _fit(candidate, others, row_length, app_settings.vehicle_gap_m)
+        if fit.length_conflicts:
+            overflows.append(LengthOverflow(booking, fit))
+    return overflows
 
 
 def bookings_preventing_deactivation(row: Row) -> list[Booking]:
