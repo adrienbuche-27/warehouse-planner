@@ -1,0 +1,12 @@
+{% load formatting %}{% autoescape off %}Bonjour,
+
+{% if is_credit_note %}Veuillez trouver en pièce jointe notre note de crédit {{ doc.number }} du {{ doc.issue_date|date:"d/m/Y" }}, relative à la facture {{ doc.invoice.number }}, d'un montant de {{ doc.total_incl_vat|money }}.{% else %}Veuillez trouver en pièce jointe notre facture {{ doc.number }} du {{ doc.issue_date|date:"d/m/Y" }}, d'un montant de {{ doc.total_incl_vat|money }}.
+
+Merci d'effectuer le paiement avant le {{ doc.due_date|date:"d/m/Y" }} sur le compte {{ doc.company_iban|iban }} avec la communication structurée {{ doc.structured_reference }}.{% endif %}
+
+Nous restons à votre disposition pour toute question.
+
+Cordialement,
+{{ doc.company_name }}
+{% if doc.company_phone %}{{ doc.company_phone }}
+{% endif %}{% endautoescape %}

@@ -1,0 +1,149 @@
+{% load formatting %}<!doctype html>
+{% comment %}
+  PDF of an invoice or a credit note (rendered by WeasyPrint, A4).
+  Legal mentions follow CLAUDE.md section 8.1 and must be validated by the accountant.
+  Every value comes from the document's snapshots, never from the current settings.
+{% endcomment %}
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>{% if is_credit_note %}Note de crédit{% else %}Facture{% endif %} {{ doc.number }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 22mm 16mm;
+    @bottom-center {
+      content: "{{ doc.company_name }}{% if doc.company_legal_form %} {{ doc.company_legal_form }}{% endif %} · TVA {{ doc.company_vat_number }}{% if doc.company_bce_number %} · BCE {{ doc.company_bce_number }}{% endif %} · page " counter(page) " / " counter(pages);
+      font-family: "DejaVu Sans", "Helvetica", sans-serif;
+      font-size: 8pt;
+      color: #666;
+    }
+  }
+  body { font-family: "DejaVu Sans", "Helvetica", sans-serif; font-size: 9.5pt; color: #222; line-height: 1.35; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .logo { max-height: 22mm; max-width: 60mm; margin-bottom: 4mm; }
+  .supplier { font-size: 9pt; }
+  .supplier strong { font-size: 11pt; }
+  .title { text-align: right; }
+  .title h1 { font-size: 20pt; margin: 0 0 2mm; letter-spacing: 0.5px; }
+  .title table td { padding: 0.5mm 0 0.5mm 4mm; }
+  .client {
+    margin: 10mm 0 8mm 95mm;
+    padding: 4mm 5mm;
+    border: 0.3mm solid #bbb;
+    border-radius: 2mm;
+  }
+  .client strong { font-size: 10.5pt; }
+  table.lines { width: 100%; border-collapse: collapse; margin-top: 4mm; }
+  table.lines th {
+    text-align: left; font-size: 8.5pt; text-transform: uppercase; color: #555;
+    border-bottom: 0.4mm solid #333; padding: 2mm 1.5mm;
+  }
+  table.lines td { border-bottom: 0.2mm solid #ddd; padding: 2.5mm 1.5mm; vertical-align: top; }
+  .num { text-align: right; white-space: nowrap; }
+  .period { color: #555; font-size: 8.5pt; }
+  .totals { width: 80mm; margin: 6mm 0 0 auto; border-collapse: collapse; }
+  .totals td { padding: 1.5mm 1.5mm; }
+  .totals .grand td { border-top: 0.4mm solid #333; font-weight: bold; font-size: 11pt; }
+  .mention { margin-top: 6mm; font-style: italic; }
+  .payment { margin-top: 10mm; padding: 4mm 5mm; background: #f3f5f7; border-radius: 2mm; }
+  .payment table td { padding: 0.8mm 4mm 0.8mm 0; }
+  .ogm { font-family: "DejaVu Sans Mono", monospace; font-size: 11pt; font-weight: bold; }
+  .reference { margin-top: 3mm; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="supplier">
+    {% if logo_url %}<img class="logo" src="{{ logo_url }}" alt=""><br>{% endif %}
+    <strong>{{ doc.company_name }}{% if doc.company_legal_form %} {{ doc.company_legal_form }}{% endif %}</strong><br>
+    {{ doc.company_address|linebreaksbr }}<br>
+    TVA : {{ doc.company_vat_number }}<br>
+    {% if doc.company_bce_number %}BCE : {{ doc.company_bce_number }}<br>{% endif %}
+    {% if doc.company_rpm %}{{ doc.company_rpm }}<br>{% endif %}
+    {% if doc.company_phone %}Tél. : {{ doc.company_phone }}<br>{% endif %}
+    {% if doc.company_email %}{{ doc.company_email }}{% endif %}
+  </div>
+  <div class="title">
+    <h1>{% if is_credit_note %}Note de crédit{% else %}Facture{% endif %}</h1>
+    <table>
+      <tr><td>Numéro</td><td><strong>{{ doc.number }}</strong></td></tr>
+      <tr><td>Date</td><td>{{ doc.issue_date|date:"d/m/Y" }}</td></tr>
+      {% if not is_credit_note %}<tr><td>Échéance</td><td>{{ doc.due_date|date:"d/m/Y" }}</td></tr>{% endif %}
+    </table>
+  </div>
+</div>
+
+<div class="client">
+  <strong>{{ doc.client_name }}</strong><br>
+  {{ doc.client_address|linebreaksbr }}
+  {% if doc.client_is_business and doc.client_vat_number %}<br>TVA : {{ doc.client_vat_number }}{% endif %}
+</div>
+
+{% if is_credit_note %}
+  <p class="reference">
+    Note de crédit relative à la facture <strong>{{ doc.invoice.number }}</strong>
+    du {{ doc.invoice.issue_date|date:"d/m/Y" }}.<br>
+    Motif : {{ doc.reason }}
+  </p>
+{% endif %}
+
+<table class="lines">
+  <thead>
+    <tr>
+      <th>Description</th>
+      <th class="num">Quantité</th>
+      <th class="num">Prix unitaire HTVA</th>
+      <th class="num">Total HTVA</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for line in lines %}
+    <tr>
+      <td>
+        {{ line.description }}
+        {% if line.service_start and line.service_end %}<br><span class="period">Période de prestation : du {{ line.service_start|date:"d/m/Y" }} au {{ line.service_end|date:"d/m/Y" }}</span>{% endif %}
+      </td>
+      <td class="num">{{ line.quantity }} période{{ line.quantity|pluralize }}</td>
+      <td class="num">{{ line.unit_price_excl_vat|money }}</td>
+      <td class="num">{{ line.line_total_excl_vat|money }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<table class="totals">
+  <tr><td>Total HTVA</td><td class="num">{{ doc.total_excl_vat|money }}</td></tr>
+  {% if doc.is_franchise %}
+    <tr><td>TVA</td><td class="num">{{ doc.total_vat|money }}</td></tr>
+  {% else %}
+    <tr><td>TVA {{ doc.vat_rate|floatformat:"-2" }} % sur {{ doc.total_excl_vat|money }}</td><td class="num">{{ doc.total_vat|money }}</td></tr>
+  {% endif %}
+  <tr class="grand"><td>Total TVAC</td><td class="num">{{ doc.total_incl_vat|money }}</td></tr>
+</table>
+
+{% if doc.is_franchise %}
+  {# Wording to confirm with the accountant. #}
+  <p class="mention">Régime particulier de franchise des petites entreprises.</p>
+{% endif %}
+
+{% if is_credit_note %}
+  <div class="payment">
+    Le montant de {{ doc.total_incl_vat|money }} sera déduit de vos prochains paiements
+    ou vous sera remboursé.
+  </div>
+{% else %}
+  <div class="payment">
+    <table>
+      <tr><td>À payer avant le</td><td><strong>{{ doc.due_date|date:"d/m/Y" }}</strong></td></tr>
+      <tr><td>Montant</td><td><strong>{{ doc.total_incl_vat|money }}</strong></td></tr>
+      <tr><td>IBAN</td><td>{{ doc.company_iban|iban }}</td></tr>
+      {% if doc.company_bic %}<tr><td>BIC</td><td>{{ doc.company_bic }}</td></tr>{% endif %}
+      <tr><td>Communication structurée</td><td class="ogm">{{ doc.structured_reference }}</td></tr>
+    </table>
+  </div>
+{% endif %}
+
+</body>
+</html>

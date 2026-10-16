@@ -38,3 +38,9 @@ def format_metres_short(value: Decimal | int | str | None) -> str:
     if "." in text:
         text = text.rstrip("0").rstrip(".")
     return text.replace(".", ",")
+
+
+def format_iban(value: str | None) -> str:
+    """IBAN in groups of 4 characters, as printed on invoices: BE68 5390 0754 7034."""
+    compact = "".join((value or "").split()).upper()
+    return " ".join(compact[i : i + 4] for i in range(0, len(compact), 4))

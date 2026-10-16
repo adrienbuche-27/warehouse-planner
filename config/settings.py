@@ -183,4 +183,9 @@ LOGGING = {
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": "INFO"},
+    # PDF generation libraries are very talkative: keep only their warnings.
+    "loggers": {
+        "weasyprint": {"level": "WARNING"},
+        "fontTools": {"level": "WARNING"},
+    },
 }
