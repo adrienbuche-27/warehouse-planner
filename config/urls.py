@@ -14,4 +14,5 @@ urlpatterns = [
     path("compte/", include("django.contrib.auth.urls")),
     path("", include("core.urls")),
     path("", include("storage.urls")),
+    path("", include("clients.urls")),
 ]

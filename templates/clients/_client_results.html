@@ -1,0 +1,35 @@
+<p><small>{{ page.paginator.count }} client(s)</small></p>
+{% if page.object_list %}
+<div class="overflow-auto">
+  <table class="striped">
+    <thead>
+      <tr>
+        <th scope="col">Nom</th>
+        <th scope="col">Type</th>
+        <th scope="col">Email</th>
+        <th scope="col">Téléphone</th>
+        <th scope="col">Localité</th>
+        <th scope="col">Véhicules</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for client in page.object_list %}
+      <tr>
+        <th scope="row">
+          <a href="{% url 'clients:client_detail' client.pk %}">{{ client.display_name }}</a>
+          {% if client.is_archived %}<span class="badge">archivé</span>{% endif %}
+        </th>
+        <td>{{ client.get_client_type_display }}</td>
+        <td>{{ client.email }}</td>
+        <td>{{ client.phone }}</td>
+        <td>{{ client.city }}</td>
+        <td>{% for vehicle in client.vehicles.all %}{{ vehicle.plate }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">—</span>{% endfor %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "includes/pagination.html" %}
+{% else %}
+  <p class="empty-state">Aucun client trouvé.</p>
+{% endif %}

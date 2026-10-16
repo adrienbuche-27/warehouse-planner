@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}{{ vehicle.plate }}{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'clients:vehicle_list' %}">← Véhicules</a></p>
+
+<div class="page-header">
+  <hgroup>
+    <h1>{{ vehicle.plate }} {% if vehicle.is_effectively_archived %}<span class="badge">archivé</span>{% endif %}</h1>
+    <p>{{ vehicle.description|default:"Marque et modèle non renseignés" }}</p>
+  </hgroup>
+  <div class="actions">
+    <a href="{% url 'clients:vehicle_edit' vehicle.pk %}" role="button">Modifier</a>
+    <form method="post" action="{% url 'clients:vehicle_archive' vehicle.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="secondary outline">{% if vehicle.is_archived %}Restaurer{% else %}Archiver{% endif %}</button>
+    </form>
+    <a href="{% url 'clients:vehicle_delete' vehicle.pk %}" role="button" class="secondary outline">Supprimer</a>
+  </div>
+</div>
+
+{% if vehicle.client.is_archived %}
+  <article class="notice">Le client de ce véhicule est archivé : le véhicule est donc lui aussi masqué des listes.</article>
+{% endif %}
+
+<div class="grid">
+  <article>
+    <header><h2>Caractéristiques</h2></header>
+    <dl class="details">
+      <dt>Longueur</dt><dd>{{ vehicle.length_m|floatformat:2 }} m</dd>
+      <dt>Hauteur</dt><dd>{% if vehicle.height_m %}{{ vehicle.height_m|floatformat:2 }} m{% else %}<span class="muted">—</span>{% endif %}</dd>
+      <dt>Client</dt><dd><a href="{% url 'clients:client_detail' vehicle.client.pk %}">{{ vehicle.client.display_name }}</a></dd>
+    </dl>
+  </article>
+  <article>
+    <header><h2>Notes</h2></header>
+    {% if vehicle.notes %}<p>{{ vehicle.notes|linebreaksbr }}</p>{% else %}<p class="muted">Aucune note.</p>{% endif %}
+  </article>
+</div>
+{% endblock %}

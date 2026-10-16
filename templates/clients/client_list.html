@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Clients{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <hgroup>
+    <h1>Clients</h1>
+    <p>Particuliers et entreprises.</p>
+  </hgroup>
+  <a href="{% url 'clients:client_create' %}" role="button">+ Nouveau client</a>
+</div>
+
+{# Live search: HTMX reloads only the results while typing. Also works as a normal form. #}
+<form method="get" class="filters" hx-get="{% url 'clients:client_list' %}" hx-target="#results"
+      hx-trigger="input delay:300ms, change, submit" hx-push-url="true">
+  <input type="search" name="q" value="{{ query }}" placeholder="Nom, email, téléphone, localité, plaque…"
+         aria-label="Rechercher" autofocus>
+  <select name="type" aria-label="Type de client">
+    <option value="">Tous les types</option>
+    {% for value, label in client_types %}
+      <option value="{{ value }}" {% if value == client_type %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <label><input type="checkbox" name="archives" value="1" {% if include_archived %}checked{% endif %}> Inclure les archivés</label>
+  <noscript><button type="submit">Rechercher</button></noscript>
+</form>
+
+<div id="results">{% include "clients/_client_results.html" %}</div>
+{% endblock %}
