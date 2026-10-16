@@ -118,3 +118,24 @@ def test_production_only_allows_configured_hosts():
         DJANGO_DEBUG="False", DJANGO_ALLOWED_HOSTS="stockage.example.be"
     )
     assert hosts == ["stockage.example.be"]
+
+
+def test_missing_page_shows_french_404(admin_client):
+    # E.g. a client deleted by "seed_demo --reset": record numbers are never reused.
+    response = admin_client.get("/clients/999999/")
+    assert response.status_code == 404
+    content = response.content.decode()
+    assert "Page introuvable" in content
+    assert "Tableau de bord" in content
+
+
+def test_unknown_url_for_anonymous_visitor_is_a_plain_404(client):
+    response = client.get("/nexiste-pas/")
+    assert response.status_code == 404
+    assert "Page introuvable" in response.content.decode()
+
+
+def test_favicon_redirects_to_logo_without_login(client):
+    response = client.get("/favicon.ico")
+    assert response.status_code == 302
+    assert response.url.endswith("img/logo-placeholder.svg")
