@@ -26,6 +26,8 @@ from storage.forms import (
 )
 from storage.models import Booking, BookingStatus, Row, compute_end_date
 
+MAX_VEHICLE_LENGTH = Decimal("20")  # same limit as the vehicle form
+
 
 @require_POST
 def row_bulk_create(request):
@@ -163,7 +165,8 @@ def _booking_form_page(request, form, booking=None):
 
 
 def booking_create(request):
-    """New booking. Planning links prefill it with ?rangee=<id>&debut=<yyyy-mm-dd>."""
+    """New booking. Planning and warehouse map links prefill it: ?rangee=<id>&debut=<yyyy-mm-dd>,
+    and from the map also &position=<n>&periodes=<n>&vehicule=<id>."""
     if request.method == "POST":
         form = BookingForm(request.POST)
         if form.is_valid():
@@ -176,7 +179,14 @@ def booking_create(request):
                 return redirect("storage:booking_detail", pk=booking.pk)
     else:
         initial = {"start_date": _parse_date(request.GET.get("debut")) or services.today()}
-        for field, param in [("row", "rangee"), ("client", "client"), ("vehicle", "vehicule")]:
+        prefill = [
+            ("row", "rangee"),
+            ("position", "position"),
+            ("periods", "periodes"),
+            ("client", "client"),
+            ("vehicle", "vehicule"),
+        ]
+        for field, param in prefill:
             if request.GET.get(param, "").isdigit():
                 initial[field] = request.GET[param]
         if "vehicle" in initial and "client" not in initial:
@@ -411,11 +421,12 @@ def booking_quick_vehicle(request):
 
 
 def _parse_decimal(value):
+    """A positive number typed with a comma or a dot ("7,40"), or None."""
     try:
         number = Decimal((value or "").replace(",", "."))
     except InvalidOperation:
         return None
-    return number if number > 0 else None
+    return number if number.is_finite() and number > 0 else None
 
 
 def planning(request):
@@ -442,14 +453,34 @@ def planning(request):
 
 
 def planning_map(request):
-    """ "Plan de l'entrepôt": who is where on a given day (today by default)."""
+    """ "Plan de l'entrepôt": who is where on a day (today by default), or over a stay of N
+    periods. With a length or a vehicle, each row says whether that van fits there, and a
+    click opens the booking form for that place."""
     today = services.today()
     day = _parse_date(request.GET.get("date")) or today
+    periods = request.GET.get("periodes", "")
+    periods = int(periods) if periods.isdigit() and 0 < int(periods) <= 100 else None
+    vehicle = Vehicle.objects.filter(pk=request.GET.get("vehicule") or 0).first()
+    length = _parse_decimal(request.GET.get("longueur"))
+    if length is not None and length > MAX_VEHICLE_LENGTH:
+        length = None
+    van = vehicle or (warehouse_map.planned_vehicle(length) if length else None)
+
+    end = compute_end_date(day, periods, AppSettings.load().period_days) if periods else day
     week = datetime.timedelta(days=7)
     context = {
-        "map": warehouse_map.build_map(day),
+        "map": warehouse_map.build_map(day, end, van if periods else None),
         "day": day,
+        "end": end,
         "today": today,
+        "periods": periods,
+        "length": length,
+        "vehicle": vehicle,
+        "van": van,
+        "vehicles": Vehicle.objects.active().select_related("client"),
+        "already_booked": bool(
+            vehicle and periods and services.vehicle_conflicts(vehicle, day, end)
+        ),
         "nav": {"back": day - week, "forward": day + week},
     }
     return render(request, "storage/warehouse_map.html", context)

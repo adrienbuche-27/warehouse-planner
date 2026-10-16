@@ -352,7 +352,8 @@ def suggest_placements(
     2. least free space left at the peak (keeps big gaps for big vehicles),
     3. row display order. This naturally puts vehicles leaving later deeper in the row.
     """
-    if vehicle_conflicts(vehicle, start, end, exclude_booking):
+    # A vehicle not saved yet (only a length, on the warehouse map) has no other bookings.
+    if vehicle.pk and vehicle_conflicts(vehicle, start, end, exclude_booking):
         return []
 
     app_settings = AppSettings.load()

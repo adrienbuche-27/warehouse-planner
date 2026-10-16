@@ -145,7 +145,11 @@ or templates, so it can be unit-tested.
   window and dims the other windows.
 - **Warehouse map** (`storage/warehouse_map.py`): one strip per row, aisle on the left, each
   vehicle sized to its length by position. "Plan de l'entrepôt" (from the Planning page) shows
-  one day: click a vehicle for its booking, or a row's free space to book there. The booking
+  one day: click a vehicle for its booking, or a row's free space to book there. Its
+  "Trouver un emplacement" form takes a start date, a number of periods and a length or a
+  vehicle: rows are then marked as in the booking form, and clicking one opens the booking form
+  prefilled (`?rangee=&position=&debut=&periodes=&vehicule=`). A van known only by its length is
+  an unsaved `Vehicle` (`warehouse_map.planned_vehicle`). The booking
   form shows it for the stay being booked (vehicles using a position one after another are
   stacked; free metres at the busiest moment) with ✓ / ★ / ⚠ / ✗ per row; clicking a row fills
   "Rangée" and "Position" with the best place in it (the fit check still applies on save).

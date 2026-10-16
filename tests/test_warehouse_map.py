@@ -175,3 +175,85 @@ def test_warehouse_map_page_defaults_to_today_and_is_linked_from_planning(admin_
     assert response.context["day"] == response.context["today"]
     content = admin_client.get(reverse("storage:planning")).content.decode()
     assert reverse("storage:planning_map") in content
+
+
+# --- Finding a place for a van over a stay ------------------------------------------
+
+
+def test_map_page_over_a_stay_for_a_length(admin_client):
+    row = make_row("R01")
+    make_booking(row, 1, MAR_1, periods=1, length="8.00")
+    full = make_row("R02")
+    make_booking(full, 1, MAR_1, periods=1, length="8.00")
+    make_booking(full, 2, MAR_1, periods=1, length="7.50")
+    url = reverse("storage:planning_map")
+    params = {"date": "2027-03-01", "periodes": "2", "longueur": "7,40"}
+    response = admin_client.get(url, params)
+    content = response.content.decode()
+    assert "Du 01/03/2027 au 28/03/2027 (2 périodes)" in content
+    assert "Pour un véhicule de 7,40" in content
+    rows = {r.row.code: r for r in response.context["map"].rows}
+    assert rows["R01"].status == RowStatus.FITS and rows["R01"].position == 2
+    assert rows["R02"].status == RowStatus.FULL
+    booking_link = (
+        f"{reverse('storage:booking_create')}?rangee={row.pk}&amp;position=2"
+        "&amp;debut=2027-03-01&amp;periodes=2"
+    )
+    assert booking_link in content
+    assert f"rangee={full.pk}&amp;position" not in content  # no link where it does not fit
+
+
+def test_map_page_for_a_registered_vehicle_links_it_to_the_booking(admin_client):
+    row = make_row("R01")
+    vehicle = make_vehicle(length_m=Decimal("7.00"))
+    params = {"date": "2027-03-01", "periodes": "1", "vehicule": vehicle.pk, "longueur": "3"}
+    response = admin_client.get(reverse("storage:planning_map"), params)
+    assert response.context["map"].vehicle == vehicle  # the vehicle wins over the length
+    assert (
+        f"rangee={row.pk}&amp;position=1&amp;debut=2027-03-01&amp;periodes=1&amp;vehicule={vehicle.pk}"
+        in (response.content.decode())
+    )
+
+
+def test_map_page_conflict_rows_explain_the_moves(admin_client):
+    row = make_row("R01")
+    aisle = make_vehicle(plate="XY-987", length_m=Decimal("5.00"))
+    make_booking(row, 1, MAR_1, periods=3, vehicle=aisle)
+    for position in (2, 3):
+        make_booking(row, position, MAR_1, periods=3, length="1.00")
+    params = {"date": "2027-03-01", "periodes": "1", "longueur": "7"}
+    content = admin_client.get(reverse("storage:planning_map"), params).content.decode()
+    assert "Déplacements nécessaires en R01" in content
+    assert "Pour sortir le nouveau véhicule (position 4)" in content and "XY-987" in content
+
+
+def test_map_page_asks_for_periods_and_ignores_bad_values(admin_client):
+    url = reverse("storage:planning_map")
+    content = admin_client.get(url, {"longueur": "7,4"}).content.decode()
+    assert "Indiquez le nombre de périodes" in content
+    for bad in ["abc", "-2", "0", "25", "nan", "inf"]:
+        response = admin_client.get(url, {"periodes": "1", "longueur": bad})
+        assert response.status_code == 200 and response.context["map"].vehicle is None
+
+
+def test_map_page_for_an_already_booked_vehicle(admin_client):
+    booking = make_booking(make_row("R01"), 1, MAR_1, periods=1)
+    params = {"date": "2027-03-01", "periodes": "1", "vehicule": booking.vehicle_id}
+    content = admin_client.get(reverse("storage:planning_map"), params).content.decode()
+    assert "est déjà réservé sur cette période" in content
+
+
+def test_booking_form_prefilled_from_the_map(admin_client):
+    row, vehicle = make_row("R04"), make_vehicle()
+    params = {
+        "rangee": row.pk,
+        "position": "3",
+        "debut": "2027-03-01",
+        "periodes": "4",
+        "vehicule": vehicle.pk,
+    }
+    form = admin_client.get(reverse("storage:booking_create"), params).context["form"]
+    assert form.initial["position"] == "3" and form.initial["periods"] == "4"
+    assert (
+        form.initial["vehicle"] == str(vehicle.pk) and form.initial["client"] == vehicle.client_id
+    )

@@ -452,8 +452,8 @@ a.blocking-icon { text-decoration: none; white-space: nowrap; }
   align-items: center;
   gap: 0.5rem;
 }
-.pick .map-head,
-.pick .map-line { grid-template-columns: 3.2rem 1fr 3.8rem 2.6rem; }
+.with-marks .map-head,
+.with-marks .map-line { grid-template-columns: 3.2rem 1fr 3.8rem 2.6rem; }
 .map-head {
   font-size: 0.75rem;
   color: var(--pico-muted-color);
@@ -478,8 +478,12 @@ button.map-line {
   font-size: inherit;
   cursor: pointer;
 }
-button.map-line:hover { background: #eef4fb; }
-button.map-line:focus-visible { outline: 2px solid var(--pico-primary); outline-offset: -2px; }
+/* Rows of the map page that open the booking form */
+a.map-line { color: inherit; text-decoration: none; }
+button.map-line:hover,
+a.map-line:hover { background: #eef4fb; }
+button.map-line:focus-visible,
+a.map-line:focus-visible { outline: 2px solid var(--pico-primary); outline-offset: -2px; }
 .map-row.selected { background: #e3f2fd; box-shadow: inset 4px 0 0 var(--pico-primary); }
 .map-line { padding: 0.25rem 0; min-height: 2.1rem; }
 .map-code { font-weight: 600; font-size: 0.9rem; padding-left: 0.3rem; }
@@ -541,6 +545,9 @@ a.map-vehicle:hover { background: #1d5fae; color: #fff; }
 .map-row-note { display: none; margin: 0 0 0.5rem 3.7rem; font-size: 0.85rem; }
 .map-row-note ul { margin-bottom: 0; }
 .map-row.selected .map-row-note { display: block; }
+.map-row-plan { margin: 0 0 0.4rem 3.7rem; font-size: 0.85rem; }
+.map-row-plan summary { color: var(--app-warn); }
+.map-row-plan ul { margin: 0.3rem 0 0; }
 .map-vehicle-sample {
   display: inline-block;
   width: 1.4rem;

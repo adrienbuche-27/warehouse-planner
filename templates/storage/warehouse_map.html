@@ -8,32 +8,82 @@
 <div class="page-header">
   <hgroup>
     <h1>Plan de l'entrepôt</h1>
-    <p>Le {{ day|date:"l d/m/Y" }} : {{ map.vehicle_count }} véhicule{{ map.vehicle_count|pluralize }}, {{ map.occupancy_percent }} % occupé, {{ map.total_free_m|metres_short }}&nbsp;m libres.</p>
+    {% if periods %}
+      <p>Du {{ day|date:"d/m/Y" }} au {{ end|date:"d/m/Y" }} ({{ periods }} période{{ periods|pluralize }}) : {{ map.vehicle_count }} véhicule{{ map.vehicle_count|pluralize }} présent{{ map.vehicle_count|pluralize }} à un moment, {{ map.total_free_m|metres_short }}&nbsp;m libres au moment le plus chargé.</p>
+    {% else %}
+      <p>Le {{ day|date:"l d/m/Y" }} : {{ map.vehicle_count }} véhicule{{ map.vehicle_count|pluralize }}, {{ map.occupancy_percent }} % occupé, {{ map.total_free_m|metres_short }}&nbsp;m libres.</p>
+    {% endif %}
   </hgroup>
   <a href="{% url 'storage:booking_create' %}" role="button">+ Nouvelle réservation</a>
 </div>
 
+<form method="get" class="map-search">
+  <article>
+    <header><h2>Trouver un emplacement</h2></header>
+    <div class="field-grid">
+      <div>
+        <label for="map-date">Date d'entrée</label>
+        <input type="date" id="map-date" name="date" value="{{ day|date:'Y-m-d' }}">
+      </div>
+      <div>
+        <label for="map-periods">Nombre de périodes</label>
+        <input type="number" id="map-periods" name="periodes" min="1" max="100" value="{{ periods|default_if_none:'' }}" placeholder="vide = ce jour seulement">
+      </div>
+      <div>
+        <label for="map-length">Longueur du véhicule (m)</label>
+        <input type="text" id="map-length" name="longueur" inputmode="decimal" value="{% if length and not vehicle %}{{ length|metres_short }}{% endif %}" placeholder="ex. 7,40">
+        <small>Pour un véhicule pas encore enregistré.</small>
+      </div>
+      <div>
+        <label for="map-vehicle">… ou un véhicule enregistré</label>
+        <select id="map-vehicle" name="vehicule">
+          <option value="">—</option>
+          {% for v in vehicles %}
+            <option value="{{ v.pk }}" {% if v.pk == vehicle.pk %}selected{% endif %}>{{ v.plate }} – {{ v.client.display_name }} ({{ v.length_m|metres }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit">Afficher</button>
+      <a href="{% url 'storage:planning_map' %}" role="button" class="secondary outline">Effacer</a>
+    </div>
+  </article>
+</form>
+
 <div class="planning-toolbar">
   <nav aria-label="Navigation dans le temps">
     <ul>
-      <li><a href="?date={{ nav.back|date:'Y-m-d' }}" role="button" class="secondary outline">‹ 7 jours plus tôt</a></li>
-      <li><a href="?date={{ today|date:'Y-m-d' }}" role="button" class="secondary">Aujourd'hui</a></li>
-      <li><a href="?date={{ nav.forward|date:'Y-m-d' }}" role="button" class="secondary outline">7 jours plus tard ›</a></li>
+      <li><a href="{% querystring date=nav.back|date:'Y-m-d' %}" role="button" class="secondary outline">‹ 7 jours plus tôt</a></li>
+      <li><a href="{% querystring date=today|date:'Y-m-d' %}" role="button" class="secondary">Aujourd'hui</a></li>
+      <li><a href="{% querystring date=nav.forward|date:'Y-m-d' %}" role="button" class="secondary outline">7 jours plus tard ›</a></li>
     </ul>
   </nav>
-  <form method="get">
-    <fieldset role="group">
-      <input type="date" name="date" value="{{ day|date:'Y-m-d' }}" aria-label="Date">
-      <button type="submit">Afficher</button>
-    </fieldset>
-  </form>
 </div>
 
-<p class="map-legend">
-  <span class="map-vehicle-sample status-stored"></span> en stock ·
-  <span class="map-vehicle-sample status-reserved"></span> réservé (pas encore entré) ·
-  cliquez sur un véhicule pour ouvrir sa réservation, ou sur la place libre d'une rangée pour y créer une réservation.
-</p>
+{% if van and not periods %}
+  <p class="notice">Indiquez le nombre de périodes pour voir où {% if vehicle %}{{ vehicle.plate }}{% else %}un véhicule de {{ length|metres }}{% endif %} peut être placé.</p>
+{% endif %}
+{% if already_booked %}
+  <p class="error">{{ vehicle.plate }} est déjà réservé sur cette période : il ne peut être placé nulle part.</p>
+{% endif %}
 
-{% include "storage/_warehouse_map.html" with pick=False %}
+{% if map.vehicle %}
+  <p class="map-legend">
+    Pour {% if vehicle %}{{ vehicle.plate }} ({{ vehicle.length_m|metres }}){% else %}un véhicule de {{ length|metres }}{% endif %} :
+    <span class="ok">✓</span> il y tient · <span class="star">★</span> meilleures propositions ·
+    <span class="warn">⚠</span> des véhicules devront être déplacés · <span class="muted">✗</span> pas assez de place.
+    Cliquez sur une rangée pour ouvrir la réservation avec la rangée, la meilleure position et les dates déjà remplies.
+    Véhicules en clair : présents seulement une partie de la période · place libre au moment le plus chargé.
+  </p>
+  {% include "storage/_warehouse_map.html" with mode="link" %}
+{% else %}
+  <p class="map-legend">
+    <span class="map-vehicle-sample status-stored"></span> en stock ·
+    <span class="map-vehicle-sample status-reserved"></span> réservé (pas encore entré) ·
+    {% if periods %}<span class="map-vehicle-sample partial"></span> présent seulement une partie de la période · {% endif %}
+    cliquez sur un véhicule pour ouvrir sa réservation, ou sur la place libre d'une rangée pour y créer une réservation.
+  </p>
+  {% include "storage/_warehouse_map.html" with mode="view" %}
+{% endif %}
 {% endblock %}

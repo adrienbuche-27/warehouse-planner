@@ -279,7 +279,7 @@ Navigation bar: **Tableau de bord · Planning · Réservations · Clients · Vé
 - A warning icon appears in a cell if any vehicle in that row has a blocked entry or exit within that window.
 - Clicking a cell opens a panel (HTMX) listing vehicles in that row for that window, by position: plate, client, dates, status, boxed-in warnings and move plans. A "Nouvelle réservation ici" button prefills row and start date.
 - Filter: show only rows with free space ≥ X m (useful when placing an 8 m vehicle).
-- **Plan de l'entrepôt** (linked from the Planning page): top-down map for one day (today by default). Each active row is a horizontal strip in display order, aisle on the left, vehicles drawn by position and sized to their length, free metres at the end. Clicking a vehicle opens its booking; clicking a row's free space starts a booking there (row and date prefilled).
+- **Plan de l'entrepôt** (linked from the Planning page): top-down map for one day (today by default). Each active row is a horizontal strip in display order, aisle on the left, vehicles drawn by position and sized to their length, free metres at the end. Clicking a vehicle opens its booking; clicking a row's free space starts a booking there (row and date prefilled). "Trouver un emplacement": with a start date and a number of periods the map covers that stay (as in the booking form); with also a length (van not registered yet) or a registered vehicle, each row is marked ✓ / ★ / ⚠ / ✗ (move plan in a collapsible line) and clicking a row that fits opens the booking form with row, best position, start date, periods and the vehicle prefilled.
 
 ### 7.3 Réservations
 

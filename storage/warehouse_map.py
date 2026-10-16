@@ -118,6 +118,12 @@ class WarehouseMap:
         return round(used * 100 / self.total_length_m)
 
 
+def planned_vehicle(length_m: Decimal) -> Vehicle:
+    """A van known only by its length (not registered yet), to see where it would fit.
+    Never saved: its "plate" is the wording used in the move plans."""
+    return Vehicle(plate="le nouveau véhicule", length_m=length_m)
+
+
 def build_map(
     start: datetime.date,
     end: datetime.date | None = None,
