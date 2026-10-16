@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from clients.models import Client, ClientType, Vehicle
 from core.models import AppSettings
+from invoicing import services as invoicing
 from invoicing.models import CreditNote, Invoice, NumberSequence
 from storage import services
 from storage.models import Booking, BookingStatus, Row
@@ -89,11 +90,14 @@ class Command(BaseCommand):
             clients = self._clients(rng, 60)
             vehicles = self._vehicles(rng, clients, 80)
             created, boxed_in = self._bookings(rng, vehicles)
+            created += self._past_bookings(rng, vehicles)
+            self.stdout.write("Création des factures et de leurs PDF (environ 20 secondes)…")
+            invoices = self._invoices(rng)
 
         self.stdout.write(
             self.style.SUCCESS(
                 f"Données créées : 40 rangées, {len(clients)} clients, {len(vehicles)} véhicules, "
-                f"{created} réservations dont {boxed_in} avec un blocage."
+                f"{created} réservations dont {boxed_in} avec un blocage, {invoices} factures."
             )
         )
 
@@ -221,3 +225,42 @@ class Command(BaseCommand):
             created += 1
         boxed_in = sum(1 for b in Booking.objects.active() if services.move_plans(b))
         return created, boxed_in
+
+    def _past_bookings(self, rng, vehicles, count=30):
+        """Finished stays over the past year, so the revenue chart has a history."""
+        today = timezone.localdate()
+        created = 0
+        for vehicle in rng.sample(vehicles, count):
+            start = today - datetime.timedelta(days=rng.randint(100, 360))
+            periods = rng.choice([1, 2, 3, 4, 6])
+            end = start + datetime.timedelta(days=periods * 14 - 1)
+            if end >= today or vehicle.bookings.overlapping(start, end).exists():
+                continue
+            suggestions = services.suggest_placements(vehicle, start, end)
+            if not suggestions:
+                continue
+            Booking.objects.create(
+                vehicle=vehicle,
+                row=suggestions[0].row,
+                position=suggestions[0].position,
+                start_date=start,
+                periods=periods,
+                status=BookingStatus.ENDED,
+                actual_check_in=start,
+                actual_check_out=end,
+            )
+            created += 1
+        return created
+
+    def _invoices(self, rng):
+        """An issued invoice for every booking that has started, issued on its first day
+        (in date order, so the numbers follow the dates). About 3 in 4 are paid."""
+        today = timezone.localdate()
+        started = Booking.objects.filter(start_date__lte=today).order_by("start_date", "pk")
+        for booking in started:
+            invoice = invoicing.create_invoice_for_booking(booking)
+            invoicing.issue_invoice(invoice, issue_date=booking.start_date)
+            paid_on = booking.start_date + datetime.timedelta(days=rng.randint(3, 28))
+            if paid_on <= today and rng.random() < 0.75:
+                invoicing.mark_paid(invoice, paid_on, rng.choice(["transfer", "transfer", "cash"]))
+        return started.count()
