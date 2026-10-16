@@ -1,0 +1,56 @@
+{% load static %}<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Gestion Stockage{% endblock %} · Camping-Cars</title>
+  <link rel="stylesheet" href="{% static 'css/pico.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="icon" href="{% static 'img/logo-placeholder.svg' %}" type="image/svg+xml">
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+</head>
+{# HTMX requests send the CSRF token automatically thanks to hx-headers. #}
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  {% if user.is_authenticated %}
+  <header class="container-fluid site-header">
+    <nav>
+      <ul>
+        <li><a href="{% url 'core:dashboard' %}" class="brand">
+          <img src="{% static 'img/logo-placeholder.svg' %}" alt="" width="28" height="28">
+          <strong>Stockage</strong>
+        </a></li>
+      </ul>
+      <ul class="main-nav">
+        <li><a href="{% url 'core:dashboard' %}" {% if nav_section == 'dashboard' %}aria-current="page"{% endif %}>Tableau de bord</a></li>
+        {# Sections without a link yet are built in later milestones (see CLAUDE.md, section 12). #}
+        <li><a href="{% url 'storage:planning' %}" {% if nav_section == 'planning' %}aria-current="page"{% endif %}>Planning</a></li>
+        <li><a href="{% url 'storage:booking_list' %}" {% if nav_section == 'bookings' %}aria-current="page"{% endif %}>Réservations</a></li>
+        <li><a href="{% url 'clients:client_list' %}" {% if nav_section == 'clients' %}aria-current="page"{% endif %}>Clients</a></li>
+        <li><a href="{% url 'clients:vehicle_list' %}" {% if nav_section == 'vehicles' %}aria-current="page"{% endif %}>Véhicules</a></li>
+        <li><a href="{% url 'invoicing:invoice_list' %}" {% if nav_section == 'invoices' %}aria-current="page"{% endif %}>Factures</a></li>
+        <li><a href="{% url 'core:settings' %}" {% if nav_section == 'settings' %}aria-current="page"{% endif %}>Paramètres</a></li>
+      </ul>
+      <ul>
+        <li><small>{{ user.get_full_name|default:user.username }}</small></li>
+        <li>
+          <form method="post" action="{% url 'logout' %}" class="logout-form">
+            {% csrf_token %}
+            <button type="submit" class="secondary outline">Déconnexion</button>
+          </form>
+        </li>
+      </ul>
+    </nav>
+  </header>
+  {% endif %}
+
+  <main class="{% block main_class %}container{% endblock %}">
+    {% if messages %}
+      {% for message in messages %}
+        <article class="message message-{{ message.tags }}" role="status">{{ message }}</article>
+      {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

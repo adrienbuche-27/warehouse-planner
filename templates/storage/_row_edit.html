@@ -1,0 +1,55 @@
+{# Inline edit: the inputs live in the table cells; the buttons send them with hx-include. #}
+<tbody id="row-{{ row.pk }}">
+<tr class="editing">
+  <td>
+    {{ form.code }}
+    {% for error in form.code.errors %}<small class="error">{{ error }}</small>{% endfor %}
+  </td>
+  <td>
+    {{ form.display_order }}
+    {% for error in form.display_order.errors %}<small class="error">{{ error }}</small>{% endfor %}
+  </td>
+  <td>
+    {{ form.length_override_m }}
+    {% for error in form.length_override_m.errors %}<small class="error">{{ error }}</small>{% endfor %}
+  </td>
+  <td><span class="muted">—</span></td>
+  <td>
+    {{ form.is_active }}
+    {% for error in form.is_active.errors %}<small class="error">{{ error }}</small>{% endfor %}
+  </td>
+  <td>{{ form.notes }}</td>
+  <td class="actions">
+    <button type="button" class="small"
+            hx-post="{% url 'storage:row_edit' row.pk %}" hx-include="closest tbody"
+            hx-target="closest tbody" hx-swap="outerHTML">Enregistrer</button>
+    <button type="button" class="secondary outline small"
+            hx-get="{% url 'storage:row_display' row.pk %}"
+            hx-target="closest tbody" hx-swap="outerHTML">Annuler</button>
+  </td>
+</tr>
+{% if blocking_bookings or overflow_bookings %}
+<tr class="row-warning">
+  <td colspan="7">
+    <div class="warning-box" role="alert">
+      {% if blocking_bookings %}
+        <p><strong>Impossible de désactiver {{ row.code }} : des réservations en cours ou à venir s'y trouvent.</strong></p>
+      {% else %}
+        <p><strong>Avec cette longueur, ces réservations ne tiendraient plus dans {{ row.code }} :</strong></p>
+      {% endif %}
+      <ul>
+        {% for booking in blocking_bookings|default:overflow_bookings %}
+          <li><a href="{% url 'storage:booking_detail' booking.pk %}">{{ booking.vehicle.plate }}</a> –
+            pos. {{ booking.position }}, du {{ booking.start_date|date }} au {{ booking.end_date|date }}</li>
+        {% endfor %}
+      </ul>
+      {% if overflow_bookings and not blocking_bookings %}
+        <button type="button" class="danger small" hx-post="{% url 'storage:row_edit' row.pk %}"
+                hx-include="closest tbody" hx-vals='{"confirm_overflow": "1"}'
+                hx-target="closest tbody" hx-swap="outerHTML">Enregistrer quand même</button>
+      {% endif %}
+    </div>
+  </td>
+</tr>
+{% endif %}
+</tbody>

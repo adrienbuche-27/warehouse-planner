@@ -1,0 +1,16 @@
+<tbody id="row-{{ row.pk }}">
+<tr>
+  <th scope="row">{{ row.code }}</th>
+  <td>{{ row.display_order }}</td>
+  <td>{% if row.length_override_m is not None %}{{ row.length_override_m|floatformat:2 }} m{% else %}<span class="muted">par défaut</span>{% endif %}</td>
+  <td>{{ row.length|floatformat:2 }} m</td>
+  <td>{% if row.is_active %}Oui{% else %}<span class="muted">Non</span>{% endif %}</td>
+  <td>{{ row.notes }}</td>
+  <td class="actions">
+    <button type="button" class="outline small"
+            hx-get="{% url 'storage:row_edit' row.pk %}" hx-target="closest tbody" hx-swap="outerHTML">
+      Modifier
+    </button>
+  </td>
+</tr>
+</tbody>

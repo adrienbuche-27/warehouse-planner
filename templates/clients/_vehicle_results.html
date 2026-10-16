@@ -1,0 +1,33 @@
+<p><small>{{ page.paginator.count }} véhicule(s)</small></p>
+{% if page.object_list %}
+<div class="overflow-auto">
+  <table class="striped">
+    <thead>
+      <tr>
+        <th scope="col">Plaque</th>
+        <th scope="col">Véhicule</th>
+        <th scope="col">Longueur</th>
+        <th scope="col">Hauteur</th>
+        <th scope="col">Client</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for vehicle in page.object_list %}
+      <tr>
+        <th scope="row">
+          <a href="{% url 'clients:vehicle_detail' vehicle.pk %}">{{ vehicle.plate }}</a>
+          {% if vehicle.is_effectively_archived %}<span class="badge">archivé</span>{% endif %}
+        </th>
+        <td>{{ vehicle.description|default:"—" }}</td>
+        <td>{{ vehicle.length_m|floatformat:2 }} m</td>
+        <td>{% if vehicle.height_m %}{{ vehicle.height_m|floatformat:2 }} m{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td><a href="{% url 'clients:client_detail' vehicle.client.pk %}">{{ vehicle.client.display_name }}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "includes/pagination.html" %}
+{% else %}
+  <p class="empty-state">Aucun véhicule trouvé.</p>
+{% endif %}

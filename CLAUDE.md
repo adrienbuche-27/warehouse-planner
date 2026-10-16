@@ -2,7 +2,7 @@
 
 Internal web app to manage a camping-car storage warehouse: clients and vehicles, space planning in 2-week periods, Belgian-compliant PDF invoices, and email reminders before storage ends.
 
-> **For Claude Code:** this README is the full specification. Implement it milestone by milestone (section 12), committing as described in section 13. When something here is ambiguous or conflicts with a technical constraint, stop and ask rather than guessing. Code, comments, commit messages and identifiers are in **English**; everything the user sees (UI, emails, PDFs) is in **French**.
+> **For Claude Code:** this file is the full specification (`README.md` is the short guide for users and maintainers). Implement it milestone by milestone (section 12), committing as described in section 13. When something here is ambiguous or conflicts with a technical constraint, stop and ask rather than guessing. Code, comments, commit messages and identifiers are in **English**; everything the user sees (UI, emails, PDFs) is in **French**.
 
 ---
 
@@ -11,6 +11,8 @@ Internal web app to manage a camping-car storage warehouse: clients and vehicles
 - Small business located in **Belgium**.
 - About **100 vehicles** maximum, stored in a single warehouse.
 - **2–3 internal users** (admins). Clients never log in.
+- The app runs **locally on a single Windows PC** at the business (no server, no domain): it is
+  opened at `http://localhost:8000` on that PC. Development happens on macOS.
 - The app is a **tracker**: it does not take payments. It records whether an invoice was paid.
 - Future maintainers are **not experienced developers**. Favour boring, well-documented, built-in solutions over clever ones. Minimise dependencies and avoid any frontend build step.
 
@@ -27,11 +29,11 @@ Internal web app to manage a camping-car storage warehouse: clients and vehicles
 | CSS | Pico.css (vendored in `static/`) | Clean defaults, no build step |
 | PDF | WeasyPrint | HTML/CSS template → PDF |
 | Email | Django SMTP backend | Any provider (own mailbox, Brevo, etc.) |
-| Scheduled jobs | Django management command + cron / systemd timer | No Celery, no Redis |
+| Scheduled jobs | Django management command + Windows Task Scheduler | No Celery, no Redis |
 | Config | `django-environ` + `.env` file | Secrets out of Git |
 | Tests | `pytest` + `pytest-django` | |
 | Lint/format | `ruff` | |
-| Production server | `gunicorn` behind Caddy (HTTPS automatic) | |
+| Production server | `waitress` on 127.0.0.1, static files by WhiteNoise | Runs on Windows; local only, so no HTTPS |
 
 Dependencies are pinned in `requirements.txt` (runtime) and `requirements-dev.txt` (tests, ruff). Do not add other dependencies without asking.
 
@@ -41,7 +43,8 @@ Dependencies are pinned in `requirements.txt` (runtime) and `requirements-dev.tx
 
 ```
 .
-├── README.md
+├── README.md               # setup and maintenance guide
+├── CLAUDE.md               # this specification
 ├── .env.example
 ├── .gitignore              # db.sqlite3, .env, media/, venv/, __pycache__/, backups/
 ├── requirements.txt
@@ -56,7 +59,8 @@ Dependencies are pinned in `requirements.txt` (runtime) and `requirements-dev.tx
 ├── reminders/              # ReminderLog, send_reminders command, email templates
 ├── templates/              # base.html + per-app templates (French)
 ├── static/                 # pico.css, htmx.min.js, app.css, logo placeholder
-├── deploy/                 # gunicorn.service, Caddyfile, reminders.timer, backup.sh
+├── deploy/windows/         # install.ps1, update.ps1, uninstall.ps1, run_server.py, run_task.py
+├── docs/                   # INSTALLATION-WINDOWS.md (French, for the person installing)
 └── tests/
 ```
 
@@ -349,7 +353,7 @@ Generate a Belgian structured reference for each invoice: 10 digits derived from
 
 ### 9.1 Job
 
-Management command `python manage.py send_reminders`, run **once a day** (systemd timer or cron, 08:00 Europe/Brussels). It is **idempotent**, so it can safely run twice. It also accepts `--dry-run`.
+Management command `python manage.py send_reminders`, run **once a day** (Windows scheduled task, 08:00; a missed run starts as soon as the PC is on). It is **idempotent**, so it can safely run twice. It also accepts `--dry-run`.
 
 For every active booking where `end_date − today ≤ reminder_days_before_end` and `end_date ≥ today`, with no successful `ReminderLog` for that kind:
 
@@ -373,14 +377,20 @@ Send emails as plain text plus a simple HTML version. Log failures in `ReminderL
 - Django auth; every view requires login (`LoginRequiredMixin` or middleware). No public pages.
 - All users are staff admins in V1. Create them with `createsuperuser` or in Django admin.
 - French login page, "mot de passe oublié" via email.
-- `DEBUG=False` in production, secure cookies, `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` from `.env`.
+- `DEBUG=False` in production, `ALLOWED_HOSTS` from `.env` (localhost by default).
+- The server listens on `127.0.0.1` only: nothing travels over the network, so HTTPS and
+  secure cookies are off (`DJANGO_HTTPS=False`). `DJANGO_HTTPS=True` exists for a future setup
+  behind an HTTPS reverse proxy.
 - Secrets only in `.env` (never committed). Provide `.env.example`:
 
 ```
 DJANGO_SECRET_KEY=change-me
 DJANGO_DEBUG=False
-DJANGO_ALLOWED_HOSTS=stockage.example.be
-CSRF_TRUSTED_ORIGINS=https://stockage.example.be
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+DJANGO_HTTPS=False
+APP_PORT=8000
+BACKUP_DIR=C:\Users\...\OneDrive\Sauvegardes Stockage
+WEASYPRINT_DLL_DIRECTORIES=C:\msys64\mingw64\bin
 EMAIL_HOST=
 EMAIL_PORT=587
 EMAIL_HOST_USER=
@@ -421,7 +431,7 @@ Each milestone ends with: tests passing, ruff clean, README updated if behaviour
 | M5 | Invoicing | Drafts, issue, numbering, PDF, payment tracking, credit notes, email PDF, tests | Sample PDF contains all section 8.1 mentions |
 | M6 | Reminders | Command, templates, logs, digest, tests | Dry-run and real run behave correctly |
 | M7 | Dashboard | KPIs, lists, charts | Dashboard reflects seed data |
-| M8 | Deployment kit | `deploy/` files, backup script, deployment docs (section 14) | Fresh VPS setup works from the docs |
+| M8 | Local installation kit (Windows) | `deploy/windows/` scripts, backup and restore commands, installation guide (section 14) | A fresh Windows PC is set up from the guide |
 
 Also provide `python manage.py seed_demo`, which creates about 40 rows, 60 clients, 80 vehicles (mix of 5–8 m) and bookings spread over the next 6 months, including some boxed-in situations. **Never run it in production** (refuse if `DEBUG=False` unless `--force`).
 
@@ -433,7 +443,7 @@ Also provide `python manage.py seed_demo`, which creates about 40 rows, 60 clien
 - One branch per milestone: `feat/m3-booking-engine`, fixes as `fix/…`.
 - Small, focused commits using **Conventional Commits**: `feat(storage): add fit check sweep`, `test(invoicing): gap-free numbering`, `fix(reminders): …`, `docs: …`, `chore: …`.
 - Merge to `main` only when tests and ruff pass. Tag releases `v0.1.0` (after M8), etc.
-- Never commit: `.env`, `db.sqlite3`, `media/`, `backups/`, virtualenvs.
+- Never commit: `.env`, `db.sqlite3`, `media/`, `backups/`, `logs/`, virtualenvs.
 - Migrations are committed. Do not edit migrations that already exist on `main`; create new ones.
 
 ---
@@ -455,15 +465,25 @@ pytest
 
 WeasyPrint needs system libraries (Pango). Document the install commands for Debian/Ubuntu and macOS (Homebrew).
 
-### Production (small VPS, Debian/Ubuntu)
+### Production (a single Windows PC, local only)
 
-Provide in `deploy/` and document step by step for a non-expert:
+Provide in `deploy/windows/` and document step by step, in French, for a non-expert
+(`docs/INSTALLATION-WINDOWS.md`):
 
-- `gunicorn.service` (systemd), `Caddyfile` (reverse proxy, automatic HTTPS), `collectstatic`.
-- `reminders.service` + `reminders.timer` (daily 08:00 Europe/Brussels).
-- `backup.sh` + timer: nightly `sqlite3 db.sqlite3 ".backup backups/db-YYYYMMDD.sqlite3"` plus a tar of `media/`; keep 30 days; optionally copy off-server (rclone). **Also document how to restore.**
+- Prerequisites: Python 3.12+ from python.org; MSYS2 + `mingw-w64-x86_64-pango` for WeasyPrint
+  (`WEASYPRINT_DLL_DIRECTORIES` in `.env`). The project folder must **not** be in a synced folder.
+- `install.ps1`: venv, dependencies, `.env` with a generated secret key, `migrate`,
+  `collectstatic`, first user, three scheduled tasks (application at logon, reminders daily
+  08:00, backup daily 19:00, all "run as soon as possible if missed"), desktop shortcut.
+  Safe to run again.
+- `run_server.py` (waitress on `127.0.0.1:APP_PORT`) and `run_task.py` (management command →
+  `logs/<command>.log`), started with `pythonw.exe` so no console window opens.
+- `manage.py backup_data`: zip of a consistent SQLite copy (online backup API) + `media/`, into
+  `BACKUP_DIR` (ideally a synced cloud folder); keep 30 days. `manage.py restore_backup <zip>`
+  makes a safety copy first. **Document how to restore**, including on a new PC.
 - SQLite pragmas set on connection: `journal_mode=WAL`, `foreign_keys=ON`, `busy_timeout=5000`.
-- Update procedure: `git pull`, `pip install -r requirements.txt`, `migrate`, `collectstatic`, restart service.
+- Update procedure (`update.ps1`): backup, stop the app, `git pull` (or copy a new version),
+  `pip install -r requirements.txt`, `migrate`, `collectstatic`, restart.
 
 ---
 
@@ -476,3 +496,4 @@ Provide in `deploy/` and document step by step for a non-expert:
 5. Vehicle photos at check-in / check-out.
 6. Overdue invoice reminders to clients.
 7. Change history / audit log on bookings and invoices.
+8. Hosting on a server (VPS with gunicorn, Caddy and HTTPS) or access from several computers.

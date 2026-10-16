@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Supprimer {{ vehicle.plate }}{% endblock %}
+
+{% block content %}
+<article class="confirm">
+  <header><h1>Supprimer le véhicule {{ vehicle.plate }} ?</h1></header>
+  {% if blockers %}
+    <p class="error">Ce véhicule ne peut pas être supprimé : des réservations y sont liées
+    ({{ blockers|length }} élément(s)).</p>
+    <p>Archivez-le plutôt : il sera masqué des listes, mais son historique sera conservé.</p>
+    <footer class="form-actions">
+      <form method="post" action="{% url 'clients:vehicle_archive' vehicle.pk %}">
+        {% csrf_token %}
+        {% if not vehicle.is_archived %}<button type="submit">Archiver le véhicule</button>{% endif %}
+      </form>
+      <a href="{% url 'clients:vehicle_detail' vehicle.pk %}" role="button" class="secondary outline">Retour</a>
+    </footer>
+  {% else %}
+    <p>Cette action est définitive. Client : {{ vehicle.client.display_name }}.</p>
+    <footer class="form-actions">
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="danger">Supprimer définitivement</button>
+      </form>
+      <a href="{% url 'clients:vehicle_detail' vehicle.pk %}" role="button" class="secondary outline">Annuler</a>
+    </footer>
+  {% endif %}
+</article>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% load formatting %}
+{% if end %}
+<dl class="summary">
+  <div><dt>Date de fin</dt><dd>{{ end|date:"d/m/Y" }}</dd></div>
+  {% if totals %}
+    <div><dt>Prix HTVA</dt><dd>{{ totals.excl_vat|money }}</dd></div>
+    <div><dt>TVA</dt><dd>{{ totals.vat|money }}</dd></div>
+    <div><dt>Total TVAC</dt><dd><strong>{{ totals.incl_vat|money }}</strong></dd></div>
+  {% else %}
+    <div><dt>Prix</dt><dd class="muted">prix par période non défini</dd></div>
+  {% endif %}
+</dl>
+{% else %}
+  <p class="muted"><small>Indiquez la date d'entrée et le nombre de périodes pour voir la date de fin et le prix.</small></p>
+{% endif %}

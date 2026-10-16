@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block title %}Tableau de bord{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <hgroup>
+    <h1>Tableau de bord</h1>
+    <p>Situation au {{ today|date:"d/m/Y" }}.</p>
+  </hgroup>
+  <a href="{% url 'reminders:reminder_list' %}" role="button" class="outline">Historique des rappels</a>
+</div>
+
+{% if not has_rows %}
+  <article class="empty-state">
+    <p>Aucune rangée active pour le moment.</p>
+    <p><small>Commencez par créer les rangées dans les <a href="{% url 'core:settings' %}#rangees">Paramètres</a>,
+    puis enregistrez les clients et les réservations.</small></p>
+  </article>
+{% endif %}
+
+<section class="kpis">
+  <article class="kpi">
+    <small>Occupation aujourd'hui</small>
+    <strong>{{ occupancy.percent|floatformat:0 }} %</strong>
+    <span>{{ occupancy.used_m|metres }} sur {{ occupancy.total_m|metres }} · {{ occupancy.vehicles }} véhicule{{ occupancy.vehicles|pluralize }}</span>
+  </article>
+  <article class="kpi">
+    <small>Espace libre</small>
+    <strong>{{ occupancy.free_m|metres }}</strong>
+    <span><a href="{% url 'storage:planning' %}">voir le planning</a></span>
+  </article>
+  <article class="kpi">
+    <small>Réservations en cours</small>
+    <strong>{{ active_bookings }}</strong>
+    <span><a href="{% url 'storage:booking_list' %}">réservées et en stock</a></span>
+  </article>
+  <article class="kpi">
+    <small>Factures impayées</small>
+    <strong>{{ invoices.unpaid_count }}</strong>
+    <span><a href="{% url 'invoicing:invoice_list' %}?statut=issued">{{ invoices.unpaid_amount|money }} à recevoir</a></span>
+  </article>
+  <article class="kpi{% if invoices.overdue_count %} kpi-alert{% endif %}">
+    <small>Factures en retard</small>
+    <strong>{% if invoices.overdue_count %}⚠ {% endif %}{{ invoices.overdue_count }}</strong>
+    <span><a href="{% url 'invoicing:invoice_list' %}?retard=1">{{ invoices.overdue_amount|money }}</a></span>
+  </article>
+</section>
+
+{% if failed_reminders %}
+<article class="warning-box" role="alert">
+  <p><strong>⚠ {{ failed_reminders|length }} rappel{{ failed_reminders|pluralize }} n'{{ failed_reminders|pluralize:"a,ont" }} pas pu être envoyé{{ failed_reminders|pluralize }}</strong>
+  (nouvel essai au prochain passage) :</p>
+  <ul>
+    {% for log in failed_reminders %}
+      <li>{{ log.sent_at|date:"d/m/Y H:i" }} · {{ log.get_kind_display }}
+        {% if log.booking %}· <a href="{% url 'storage:booking_detail' log.booking.pk %}#rappels">{{ log.booking.vehicle.plate }}</a>{% endif %}
+        · {{ log.error_message }}</li>
+    {% endfor %}
+  </ul>
+  <p><small>Vérifiez la configuration d'envoi avec « Envoyer un email de test » dans les <a href="{% url 'core:settings' %}#email-test">Paramètres</a>.</small></p>
+</article>
+{% endif %}
+
+<div class="grid dashboard-lists">
+  <article>
+    <header><h2>Fin de stockage dans les {{ upcoming_days }} prochains jours</h2></header>
+    {% if ending_soon %}
+    <div class="overflow-auto">
+      <table class="striped compact">
+        <thead><tr><th scope="col">Fin</th><th scope="col">Véhicule</th><th scope="col">Client</th><th scope="col">Emplacement</th><th scope="col">Rappel</th><th scope="col"><span class="visually-hidden">Blocage</span></th></tr></thead>
+        <tbody>
+          {% for item in ending_soon %}
+          <tr>
+            <td>{{ item.booking.end_date|date:"d/m" }}</td>
+            <td><a href="{% url 'storage:booking_detail' item.booking.pk %}">{{ item.booking.vehicle.plate }}</a></td>
+            <td class="wrap">{{ item.booking.vehicle.client.display_name }}</td>
+            <td>{{ item.booking.row.code }} · {{ item.booking.position }}</td>
+            <td>{% if item.reminder_sent %}<span class="ok">✓ envoyé</span>{% else %}<span class="muted">non</span>{% endif %}</td>
+            <td>{% if item.blockers %}<a href="{% url 'storage:booking_detail' item.booking.pk %}#plan-de-deplacement" class="blocking-icon" title="Sortie bloquée : voir le plan de déplacement">⚠ bloqué</a>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="muted">Aucune fin de stockage prévue.</p>
+    {% endif %}
+  </article>
+
+  <article>
+    <header><h2>Prochaines entrées</h2></header>
+    {% if upcoming_entries %}
+    <div class="overflow-auto">
+      <table class="striped compact">
+        <thead><tr><th scope="col">Entrée</th><th scope="col">Véhicule</th><th scope="col">Client</th><th scope="col">Emplacement</th><th scope="col"><span class="visually-hidden">Blocage</span></th></tr></thead>
+        <tbody>
+          {% for item in upcoming_entries %}
+          <tr>
+            <td>{{ item.booking.start_date|date:"d/m" }}</td>
+            <td><a href="{% url 'storage:booking_detail' item.booking.pk %}">{{ item.booking.vehicle.plate }}</a></td>
+            <td class="wrap">{{ item.booking.vehicle.client.display_name }}</td>
+            <td>{{ item.booking.row.code }} · {{ item.booking.position }}</td>
+            <td>{% if item.blockers %}<a href="{% url 'storage:booking_detail' item.booking.pk %}#plan-de-deplacement" class="blocking-icon" title="Entrée bloquée : voir le plan de déplacement">⚠ bloqué</a>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="muted">Aucune entrée prévue.</p>
+    {% endif %}
+  </article>
+</div>
+
+<div class="grid dashboard-charts">
+  <article>
+    <header>
+      <h2>Occupation prévue</h2>
+      <small class="muted">Occupation maximale par période de 2 semaines · lignes pointillées : 70 % et 95 %</small>
+    </header>
+    {% include "includes/bar_chart.html" with chart=forecast_chart title="Occupation prévue par période de 2 semaines" %}
+    <details>
+      <summary>Voir les données</summary>
+      <table class="compact">
+        <thead><tr><th scope="col">Période</th><th scope="col" class="num">Occupation</th></tr></thead>
+        <tbody>{% for bar in forecast_chart.bars %}<tr><td>{{ bar.table_label }}</td><td class="num">{{ bar.value|floatformat:0 }} %</td></tr>{% endfor %}</tbody>
+      </table>
+    </details>
+  </article>
+
+  <article>
+    <header>
+      <h2>Chiffre d'affaires mensuel</h2>
+      <small class="muted">Factures émises HTVA, notes de crédit déduites · 12 derniers mois</small>
+    </header>
+    {% include "includes/bar_chart.html" with chart=revenue_chart title="Chiffre d'affaires mensuel hors TVA" %}
+    <details>
+      <summary>Voir les données</summary>
+      <table class="compact">
+        <thead><tr><th scope="col">Mois</th><th scope="col" class="num">HTVA</th></tr></thead>
+        <tbody>{% for bar in revenue_chart.bars %}<tr><td>{{ bar.table_label }}</td><td class="num">{{ bar.value|money }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </details>
+  </article>
+</div>
+{% endblock %}

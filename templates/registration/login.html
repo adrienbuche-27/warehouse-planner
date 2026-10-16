@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Connexion{% endblock %}
+
+{% block content %}
+<article class="auth-card">
+  <header><h1>Connexion</h1></header>
+
+  {% if form.errors %}
+    <p class="error">Nom d'utilisateur ou mot de passe incorrect. Veuillez réessayer.</p>
+  {% endif %}
+
+  <form method="post" action="{% url 'login' %}">
+    {% csrf_token %}
+    <label for="id_username">Nom d'utilisateur</label>
+    <input type="text" name="username" id="id_username" autocomplete="username" autofocus required
+           value="{{ form.username.value|default:'' }}">
+
+    <label for="id_password">Mot de passe</label>
+    <input type="password" name="password" id="id_password" autocomplete="current-password" required>
+
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit">Se connecter</button>
+  </form>
+
+  <footer><a href="{% url 'password_reset' %}">Mot de passe oublié ?</a></footer>
+</article>
+{% endblock %}

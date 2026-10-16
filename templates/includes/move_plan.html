@@ -1,0 +1,5 @@
+{# One move plan (storage.services.MovePlan) as a sentence, plates in bold. #}
+Pour {{ plan.verb }} <strong>{{ plan.booking.vehicle.plate }}</strong> (position {{ plan.booking.position }})
+le {{ plan.date|date:"d/m/Y" }} : déplacer d'abord
+{% for blocker in plan.blockers %}<strong>{{ blocker.vehicle.plate }}</strong> (pos. {{ blocker.position }}){% if not forloop.last %}, puis {% endif %}{% endfor %}.
+{% if plan.blockers|length > 1 %}Les replacer ensuite dans l'ordre inverse.{% else %}Le replacer ensuite.{% endif %}

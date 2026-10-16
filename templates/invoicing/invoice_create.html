@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Facture manuelle{% endblock %}
+
+{% block content %}
+<article class="confirm">
+  <header><h1>Facture manuelle</h1></header>
+  <p>Pour facturer une réservation, utilisez plutôt le bouton « Créer la facture » sur la page de la réservation.</p>
+  <form method="post">
+    {% csrf_token %}
+    {% include "includes/field.html" with field=form.client %}
+    <div class="form-actions">
+      <button type="submit">Créer le brouillon</button>
+      <a href="{% url 'invoicing:invoice_list' %}" role="button" class="secondary outline">Annuler</a>
+    </div>
+  </form>
+</article>
+{% endblock %}

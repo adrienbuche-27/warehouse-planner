@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load formatting l10n %}
+
+{% block title %}Planning{% endblock %}
+
+{# The grid is wide: use the whole screen width. #}
+{% block main_class %}container-fluid planning-page{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <hgroup>
+    <h1>Planning</h1>
+    <p>Occupation maximale de chaque rangée par période de 2 semaines. Cliquez sur une case pour le détail.</p>
+  </hgroup>
+  <a href="{% url 'storage:booking_create' %}" role="button">+ Nouvelle réservation</a>
+</div>
+
+<div class="planning-toolbar">
+  <nav aria-label="Navigation dans le temps">
+    <ul>
+      <li><a href="?debut={{ nav.page_back|date:'Y-m-d' }}{% if min_free %}&libre={{ min_free|unlocalize }}{% endif %}" role="button" class="secondary outline" title="6 mois plus tôt">«</a></li>
+      <li><a href="?debut={{ nav.back|date:'Y-m-d' }}{% if min_free %}&libre={{ min_free|unlocalize }}{% endif %}" role="button" class="secondary outline" title="2 semaines plus tôt">‹ Précédent</a></li>
+      <li><a href="?debut={{ nav.today|date:'Y-m-d' }}{% if min_free %}&libre={{ min_free|unlocalize }}{% endif %}" role="button" class="secondary">Aujourd'hui</a></li>
+      <li><a href="?debut={{ nav.forward|date:'Y-m-d' }}{% if min_free %}&libre={{ min_free|unlocalize }}{% endif %}" role="button" class="secondary outline" title="2 semaines plus tard">Suivant ›</a></li>
+      <li><a href="?debut={{ nav.page_forward|date:'Y-m-d' }}{% if min_free %}&libre={{ min_free|unlocalize }}{% endif %}" role="button" class="secondary outline" title="6 mois plus tard">»</a></li>
+    </ul>
+  </nav>
+  <form method="get" class="free-filter">
+    <input type="hidden" name="debut" value="{{ grid.start|date:'Y-m-d' }}">
+    <fieldset role="group">
+      <input type="number" name="libre" min="0" step="0.1" value="{{ min_free|default_if_none:''|unlocalize }}"
+             placeholder="Espace libre min. (m)" aria-label="Espace libre minimum en mètres">
+      <button type="submit">Filtrer</button>
+    </fieldset>
+    {% if min_free %}<small>Rangées avec au moins {{ min_free|metres }} libres sur une période · <a href="?debut={{ grid.start|date:'Y-m-d' }}">tout afficher</a></small>{% endif %}
+  </form>
+</div>
+
+<p class="legend">
+  <span class="cell-sample level-ok"></span> moins de 70 %
+  <span class="cell-sample level-warn"></span> 70 à 95 %
+  <span class="cell-sample level-danger"></span> plus de 95 %
+  <span class="blocking-icon">⚠</span> véhicule bloqué à l'entrée ou à la sortie
+</p>
+
+{% if grid.rows %}
+<div class="planning-wrapper">
+  <table class="planning">
+    <thead>
+      <tr>
+        <th scope="col" class="row-head">Rangée</th>
+        {% for window_start, window_end in grid.windows %}
+          <th scope="col" class="{% if window_start <= today and today <= window_end %}current-window{% endif %}">
+            {{ window_start|date:"d/m" }}<br><small>au {{ window_end|date:"d/m/y" }}</small>
+          </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for planning_row in grid.rows %}
+      <tr>
+        <th scope="row" class="row-head">{{ planning_row.row.code }}<br><small>{{ planning_row.length_m|metres_short }} m</small></th>
+        {% for cell in planning_row.cells %}
+          <td class="level-{{ cell.level }}{% if grid.min_free_m and cell.free_m < grid.min_free_m %} dimmed{% endif %}{% if cell.start <= today and today <= cell.end %} current-window{% endif %}">
+            <button type="button" class="cell-button"
+                    hx-get="{% url 'storage:planning_cell' planning_row.row.pk cell.start|date:'Y-m-d' %}"
+                    hx-target="#cell-panel-content"
+                    hx-on::after-request="document.getElementById('cell-panel').showModal()"
+                    aria-label="{{ planning_row.row.code }}, du {{ cell.start|date:'d/m' }} au {{ cell.end|date:'d/m' }} : {{ cell.peak_m|metres_short }} sur {{ cell.length_m|metres_short }} m">
+              {{ cell.peak_m|metres_short }} / {{ cell.length_m|metres_short }} m
+              {% if cell.has_blocking %}<span class="blocking-icon" title="Véhicule bloqué">⚠</span>{% endif %}
+            </button>
+          </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <p class="empty-state">
+    {% if min_free %}Aucune rangée n'a {{ min_free|metres }} libres sur cette période.
+    {% else %}Aucune rangée active. Créez des rangées dans les <a href="{% url 'core:settings' %}#rangees">Paramètres</a>.{% endif %}
+  </p>
+{% endif %}
+
+<dialog id="cell-panel">
+  <article>
+    <div id="cell-panel-content"></div>
+    <footer><button type="button" class="secondary" onclick="this.closest('dialog').close()">Fermer</button></footer>
+  </article>
+</dialog>
+{% endblock %}

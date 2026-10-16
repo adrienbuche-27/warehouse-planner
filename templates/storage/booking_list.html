@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Réservations{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <hgroup>
+    <h1>Réservations</h1>
+    <p>Emplacements réservés et véhicules en stock.</p>
+  </hgroup>
+  <div class="actions">
+    <a href="{% url 'reminders:reminder_list' %}" role="button" class="outline">Historique des rappels</a>
+    <a href="{% url 'storage:booking_create' %}" role="button">+ Nouvelle réservation</a>
+  </div>
+</div>
+
+<form method="get" class="filters" hx-get="{% url 'storage:booking_list' %}" hx-target="#results"
+      hx-trigger="input delay:300ms, change, submit" hx-push-url="true">
+  <input type="search" name="q" value="{{ query }}" placeholder="Plaque ou nom du client…" aria-label="Rechercher" autofocus>
+  <select name="statut" aria-label="Statut">
+    {% for value, label in status_filters %}<option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="rangee" aria-label="Rangée">
+    <option value="">Toutes les rangées</option>
+    {% for row in rows %}<option value="{{ row.pk }}" {% if row.pk|stringformat:"s" == row_id %}selected{% endif %}>{{ row.code }}</option>{% endfor %}
+  </select>
+  <select name="client" aria-label="Client">
+    <option value="">Tous les clients</option>
+    {% for client in clients %}<option value="{{ client.pk }}" {% if client.pk|stringformat:"s" == client_id %}selected{% endif %}>{{ client.display_name }}</option>{% endfor %}
+  </select>
+  <label class="date-filter">Du <input type="date" name="du" value="{{ date_from|date:'Y-m-d' }}"></label>
+  <label class="date-filter">au <input type="date" name="au" value="{{ date_to|date:'Y-m-d' }}"></label>
+  <noscript><button type="submit">Filtrer</button></noscript>
+</form>
+
+<div id="results">{% include "storage/_booking_results.html" %}</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}{% if vehicle %}Modifier {{ vehicle.plate }}{% else %}Nouveau véhicule{% endif %}{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>{% if vehicle %}Modifier le véhicule{% else %}Nouveau véhicule{% endif %}</h1>
+  {% if vehicle %}<p>{{ vehicle.plate }}</p>{% endif %}
+</hgroup>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
+  <article>
+    <div class="field-grid">
+      <div class="field-wide">{% include "includes/field.html" with field=form.client %}</div>
+      <div>{% include "includes/field.html" with field=form.plate %}</div>
+      <div>{% include "includes/field.html" with field=form.brand %}</div>
+      <div>{% include "includes/field.html" with field=form.model %}</div>
+      <div>{% include "includes/field.html" with field=form.length_m %}</div>
+      <div>{% include "includes/field.html" with field=form.height_m %}</div>
+      <div class="field-wide">{% include "includes/field.html" with field=form.notes %}</div>
+    </div>
+  </article>
+  <div class="form-actions">
+    <button type="submit">Enregistrer</button>
+    <a href="{% if vehicle %}{% url 'clients:vehicle_detail' vehicle.pk %}{% else %}{% url 'clients:vehicle_list' %}{% endif %}" role="button" class="secondary outline">Annuler</a>
+  </div>
+</form>
+{% endblock %}

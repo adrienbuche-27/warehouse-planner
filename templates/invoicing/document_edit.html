@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Modifier le brouillon{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>{% if extra_form %}Note de crédit{% else %}Facture{% endif %} – brouillon</h1>
+  <p>{{ doc.client.display_name }}{% if extra_form %} · facture {{ doc.invoice.number }}{% endif %}</p>
+</hgroup>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if extra_form %}<article>{% include "includes/field.html" with field=extra_form.reason %}</article>{% endif %}
+
+  {{ formset.management_form }}
+  {% for error in formset.non_form_errors %}<p class="error">{{ error }}</p>{% endfor %}
+  <article>
+    <header><h2>Lignes</h2></header>
+    <div class="overflow-auto">
+      <table class="lines-edit">
+        <thead>
+          <tr>
+            <th scope="col">Description</th>
+            <th scope="col">Début</th>
+            <th scope="col">Fin</th>
+            <th scope="col">Quantité (périodes)</th>
+            <th scope="col">Prix unitaire HTVA</th>
+            <th scope="col">Supprimer</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for line_form in formset %}
+          <tr>
+            {% for hidden in line_form.hidden_fields %}{{ hidden }}{% endfor %}
+            {% for field in line_form.visible_fields %}
+              <td>
+                {{ field }}
+                {% for error in field.errors %}<small class="error">{{ error }}</small>{% endfor %}
+              </td>
+            {% endfor %}
+          </tr>
+          {% for error in line_form.non_field_errors %}<tr><td colspan="6"><small class="error">{{ error }}</small></td></tr>{% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <footer><small class="muted">Une ligne vide en bas permet d'ajouter une ligne. Enregistrez pour en obtenir une autre.
+    TVA du document : {% if doc.is_franchise %}franchise (pas de TVA){% else %}{{ doc.vat_rate|floatformat:"-2" }} %{% endif %}.</small></footer>
+  </article>
+
+  <div class="form-actions">
+    <button type="submit">Enregistrer le brouillon</button>
+    <a href="{% if extra_form %}{% url 'invoicing:credit_note_detail' doc.pk %}{% else %}{% url 'invoicing:invoice_detail' doc.pk %}{% endif %}" role="button" class="secondary outline">Annuler</a>
+  </div>
+</form>
+{% endblock %}

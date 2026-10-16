@@ -1,0 +1,28 @@
+{% comment %}
+  Vertical bar chart drawn from core.charts.BarChart (inline SVG, no JavaScript).
+  Hover a bar for its value (SVG <title>); the same numbers are in the table below the chart.
+  Usage: {% include "includes/bar_chart.html" with chart=forecast_chart title="…" %}
+{% endcomment %}
+{% load l10n %}{% localize off %}{# SVG coordinates need a dot, never the French comma #}
+<svg class="bar-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-label="{{ title }}" preserveAspectRatio="xMidYMid meet">
+  <g class="grid">
+    {% for tick in chart.ticks %}
+      <line x1="{{ chart.left }}" x2="{{ chart.right_edge }}" y1="{{ tick.y }}" y2="{{ tick.y }}"></line>
+      <text class="tick" x="{{ chart.left|add:'-6' }}" y="{{ tick.y }}" dy="0.32em" text-anchor="end">{{ tick.label }}</text>
+    {% endfor %}
+  </g>
+  {% for line in chart.reference_lines %}
+    <line class="reference" x1="{{ chart.left }}" x2="{{ chart.right_edge }}" y1="{{ line.y }}" y2="{{ line.y }}"></line>
+  {% endfor %}
+  {% for bar in chart.bars %}
+    <g class="bar">
+      <title>{{ bar.tooltip }}</title>
+      {# Hit area taller than the bar, so short bars are easy to hover. #}
+      <rect class="hit" x="{{ bar.x }}" y="0" width="{{ bar.width }}" height="{{ chart.baseline }}"></rect>
+      {% if bar.path %}<path d="{{ bar.path }}"></path>{% endif %}
+      <text class="x-label" x="{{ bar.center }}" y="{{ chart.baseline|add:'18' }}" text-anchor="middle">{{ bar.label }}</text>
+    </g>
+  {% endfor %}
+  <line class="baseline" x1="{{ chart.left }}" x2="{{ chart.right_edge }}" y1="{{ chart.baseline }}" y2="{{ chart.baseline }}"></line>
+</svg>
+{% endlocalize %}

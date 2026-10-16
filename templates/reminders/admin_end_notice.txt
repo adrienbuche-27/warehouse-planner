@@ -1,0 +1,15 @@
+{% autoescape off %}Fin de stockage le {{ booking.end_date|date:"d/m/Y" }} ({% if days_left == 0 %}aujourd'hui{% else %}dans {{ days_left }} jour{{ days_left|pluralize }}{% endif %}).
+
+Véhicule : {{ booking.vehicle.plate }}{% if booking.vehicle.description %} – {{ booking.vehicle.description }}{% endif %}
+Client : {{ client.display_name }}
+Téléphone : {{ client.phone|default:"—" }}
+Email : {{ client.email }}
+Emplacement : rangée {{ booking.row.code }}, position {{ booking.position }}
+Statut : {{ booking.get_status_display }}
+Rappel envoyé au client : {% if client_reminded %}oui{% else %}non{% endif %}
+{% if exit_plan %}
+SORTIE BLOQUÉE
+{{ exit_plan.as_text }}
+{% else %}
+La sortie n'est pas bloquée.
+{% endif %}{% endautoescape %}

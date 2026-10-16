@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Véhicules{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <hgroup>
+    <h1>Véhicules</h1>
+    <p>Camping-cars des clients.</p>
+  </hgroup>
+  <a href="{% url 'clients:vehicle_create' %}" role="button">+ Nouveau véhicule</a>
+</div>
+
+<form method="get" class="filters" hx-get="{% url 'clients:vehicle_list' %}" hx-target="#results"
+      hx-trigger="input delay:300ms, change, submit" hx-push-url="true">
+  <input type="search" name="q" value="{{ query }}" placeholder="Plaque, marque, modèle, client…"
+         aria-label="Rechercher" autofocus>
+  <label><input type="checkbox" name="archives" value="1" {% if include_archived %}checked{% endif %}> Inclure les archivés</label>
+  <noscript><button type="submit">Rechercher</button></noscript>
+</form>
+
+<div id="results">{% include "clients/_vehicle_results.html" %}</div>
+{% endblock %}

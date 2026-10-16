@@ -1,0 +1,19 @@
+{# Vehicle dropdown of the booking form, reloaded when the client changes. #}
+<label for="id_vehicle">Véhicule</label>
+<div class="vehicle-select">
+  <select name="vehicle" id="id_vehicle">
+    {% if vehicles %}
+      <option value="">— Choisir un véhicule —</option>
+      {% for vehicle in vehicles %}
+        <option value="{{ vehicle.pk }}" {% if vehicle.pk|stringformat:"s" == selected %}selected{% endif %}>{{ vehicle.plate }}{% if vehicle.description %} – {{ vehicle.description }}{% endif %} ({{ vehicle.length_m|floatformat:2 }} m)</option>
+      {% endfor %}
+    {% else %}
+      <option value="">{% if client_id %}Aucun véhicule pour ce client{% else %}Choisissez d'abord le client{% endif %}</option>
+    {% endif %}
+  </select>
+  <button type="button" class="outline"
+          hx-get="{% url 'storage:booking_quick_vehicle' %}" hx-include="#id_client" hx-target="#quick-vehicle">
+    + Nouveau véhicule
+  </button>
+</div>
+{% if close_quick_form %}<div id="quick-vehicle" hx-swap-oob="true"></div>{% endif %}

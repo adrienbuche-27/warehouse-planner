@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Supprimer {{ client.display_name }}{% endblock %}
+
+{% block content %}
+<article class="confirm">
+  <header><h1>Supprimer le client « {{ client.display_name }} » ?</h1></header>
+  {% if blockers %}
+    <p class="error">Ce client ne peut pas être supprimé : des réservations ou des factures y sont liées
+    ({{ blockers|length }} élément(s)).</p>
+    <p>Archivez-le plutôt : il sera masqué des listes, mais son historique sera conservé.</p>
+    <footer class="form-actions">
+      <form method="post" action="{% url 'clients:client_archive' client.pk %}">
+        {% csrf_token %}
+        {% if not client.is_archived %}<button type="submit">Archiver le client</button>{% endif %}
+      </form>
+      <a href="{% url 'clients:client_detail' client.pk %}" role="button" class="secondary outline">Retour</a>
+    </footer>
+  {% else %}
+    <p>Cette action est définitive.</p>
+    {% if vehicles %}
+      <p>Ses véhicules seront aussi supprimés :</p>
+      <ul>{% for vehicle in vehicles %}<li>{{ vehicle.plate }} {{ vehicle.description }}</li>{% endfor %}</ul>
+    {% endif %}
+    <footer class="form-actions">
+      <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="danger">Supprimer définitivement</button>
+      </form>
+      <a href="{% url 'clients:client_detail' client.pk %}" role="button" class="secondary outline">Annuler</a>
+    </footer>
+  {% endif %}
+</article>
+{% endblock %}

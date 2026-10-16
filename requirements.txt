@@ -1,0 +1,10 @@
+# Runtime dependencies (pinned). Do not add new ones without discussing it first (see CLAUDE.md).
+Django==5.2.18
+django-environ==0.14.0
+weasyprint==70.0
+# Image uploads (company logo). Also a WeasyPrint dependency; pinned explicitly here.
+Pillow==12.3.0
+# Web server used on the Windows computer (gunicorn does not run on Windows).
+waitress==3.0.2
+# Serves the static files (CSS, JavaScript) when DEBUG is off.
+whitenoise==6.12.0

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block title %}{{ client.display_name }}{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'clients:client_list' %}">← Clients</a></p>
+
+<div class="page-header">
+  <hgroup>
+    <h1>{{ client.display_name }} {% if client.is_archived %}<span class="badge">archivé</span>{% endif %}</h1>
+    <p>{{ client.get_client_type_display }}{% if client.is_business and client.contact_name %} · contact : {{ client.contact_name }}{% endif %}</p>
+  </hgroup>
+  <div class="actions">
+    <a href="{% url 'clients:client_edit' client.pk %}" role="button">Modifier</a>
+    <form method="post" action="{% url 'clients:client_archive' client.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="secondary outline">{% if client.is_archived %}Restaurer{% else %}Archiver{% endif %}</button>
+    </form>
+    <a href="{% url 'clients:client_delete' client.pk %}" role="button" class="secondary outline">Supprimer</a>
+  </div>
+</div>
+
+<div class="grid">
+  <article>
+    <header><h2>Coordonnées</h2></header>
+    <dl class="details">
+      <dt>Email</dt><dd><a href="mailto:{{ client.email }}">{{ client.email }}</a></dd>
+      <dt>Téléphone</dt><dd>{% if client.phone %}<a href="tel:{{ client.phone }}">{{ client.phone }}</a>{% else %}<span class="muted">—</span>{% endif %}</dd>
+      <dt>Adresse</dt><dd>{% for line in client.address_lines %}{{ line }}<br>{% empty %}<span class="muted">—</span>{% endfor %}</dd>
+      {% if client.is_business %}<dt>N° de TVA</dt><dd>{{ client.vat_number }}</dd>{% endif %}
+    </dl>
+  </article>
+  <article>
+    <header><h2>Notes</h2></header>
+    {% if client.notes %}<p>{{ client.notes|linebreaksbr }}</p>{% else %}<p class="muted">Aucune note.</p>{% endif %}
+    <footer><small class="muted">Créé le {{ client.created_at|date }} · modifié le {{ client.updated_at|date }}</small></footer>
+  </article>
+</div>
+
+<article>
+  <header class="page-header">
+    <h2>Véhicules</h2>
+    {% if not client.is_archived %}<a href="{% url 'clients:vehicle_create' %}?client={{ client.pk }}" role="button" class="outline">+ Ajouter un véhicule</a>{% endif %}
+  </header>
+  {% if vehicles %}
+  <div class="overflow-auto">
+    <table class="striped">
+      <thead><tr><th scope="col">Plaque</th><th scope="col">Véhicule</th><th scope="col">Longueur</th><th scope="col">Hauteur</th></tr></thead>
+      <tbody>
+        {% for vehicle in vehicles %}
+        <tr>
+          <th scope="row"><a href="{% url 'clients:vehicle_detail' vehicle.pk %}">{{ vehicle.plate }}</a>{% if vehicle.is_archived %} <span class="badge">archivé</span>{% endif %}</th>
+          <td>{{ vehicle.description|default:"—" }}</td>
+          <td>{{ vehicle.length_m|floatformat:2 }} m</td>
+          <td>{% if vehicle.height_m %}{{ vehicle.height_m|floatformat:2 }} m{% else %}<span class="muted">—</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="muted">Aucun véhicule.</p>
+  {% endif %}
+</article>
+<article>
+  <header class="page-header">
+    <h2>Réservations</h2>
+    {% if not client.is_archived %}<a href="{% url 'storage:booking_create' %}?client={{ client.pk }}" role="button" class="outline">+ Nouvelle réservation</a>{% endif %}
+  </header>
+  {% include "includes/booking_table.html" with show_vehicle=True %}
+</article>
+<article>
+  <header class="page-header">
+    <h2>Factures</h2>
+    <span>Solde à payer : <strong>{{ outstanding|money }}</strong></span>
+  </header>
+  {% include "includes/invoice_table.html" %}
+</article>
+{% endblock %}

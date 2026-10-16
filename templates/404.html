@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Page introuvable{% endblock %}
+
+{% block content %}
+<article class="confirm">
+  <header><h1>Page introuvable</h1></header>
+  <p>Cette page n'existe pas ou plus. L'élément a peut-être été supprimé
+  (par exemple un client, un véhicule ou une réservation), ou le lien est incorrect.</p>
+  <footer class="form-actions">
+    <a href="{% url 'core:dashboard' %}" role="button">Tableau de bord</a>
+    {% if user.is_authenticated %}
+      <a href="{% url 'clients:client_list' %}" role="button" class="secondary outline">Clients</a>
+      <a href="{% url 'storage:booking_list' %}" role="button" class="secondary outline">Réservations</a>
+    {% endif %}
+  </footer>
+</article>
+{% endblock %}

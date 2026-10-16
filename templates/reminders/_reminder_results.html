@@ -1,0 +1,35 @@
+<p><small>{{ page.paginator.count }} email(s)</small></p>
+{% if page.object_list %}
+<div class="overflow-auto">
+  <table class="striped">
+    <thead>
+      <tr>
+        <th scope="col">Envoyé le</th>
+        <th scope="col">Type</th>
+        <th scope="col">Réservation</th>
+        <th scope="col">Destinataires</th>
+        <th scope="col">Résultat</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in page.object_list %}
+      <tr>
+        <td>{{ log.sent_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ log.get_kind_display }}{% if log.digest_date %} du {{ log.digest_date|date }}{% endif %}</td>
+        <td>
+          {% if log.booking %}
+            <a href="{% url 'storage:booking_detail' log.booking.pk %}#rappels">{{ log.booking.vehicle.plate }}</a>
+            <small class="muted">· {{ log.booking.vehicle.client.display_name }} · fin le {{ log.booking.end_date|date }}</small>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td>{{ log.recipients }}</td>
+        <td>{% if log.success %}<span class="ok">✓ envoyé</span>{% else %}<span class="error">échec : {{ log.error_message }}</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "includes/pagination.html" %}
+{% else %}
+  <p class="empty-state">Aucun email trouvé.</p>
+{% endif %}

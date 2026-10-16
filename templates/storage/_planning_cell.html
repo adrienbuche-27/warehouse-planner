@@ -1,0 +1,32 @@
+<header>
+  <h2>{{ row.code }} · du {{ window_start|date:"d/m/Y" }} au {{ window_end|date:"d/m/Y" }}</h2>
+</header>
+{% if vehicles %}
+  <ol class="cell-vehicles">
+    {% for item in vehicles %}
+      {% with booking=item.booking %}
+      <li>
+        <div class="cell-vehicle-head">
+          <span class="position">pos. {{ booking.position }}</span>
+          <a href="{% url 'storage:booking_detail' booking.pk %}"><strong>{{ booking.vehicle.plate }}</strong></a>
+          {% include "includes/status_badge.html" %}
+        </div>
+        <div>
+          {{ booking.vehicle.client.display_name }} · {{ booking.vehicle.length_m|floatformat:2 }} m ·
+          du {{ booking.start_date|date }} au {{ booking.end_date|date }}
+        </div>
+        {% for plan in item.plans %}
+          <p class="warning-box">⚠ {% include "includes/move_plan.html" %}</p>
+        {% endfor %}
+      </li>
+      {% endwith %}
+    {% endfor %}
+  </ol>
+{% else %}
+  <p class="muted">Aucun véhicule dans cette rangée sur cette période.</p>
+{% endif %}
+<p>
+  <a href="{% url 'storage:booking_create' %}?rangee={{ row.pk }}&debut={{ new_booking_start|date:'Y-m-d' }}" role="button">
+    Nouvelle réservation ici
+  </a>
+</p>

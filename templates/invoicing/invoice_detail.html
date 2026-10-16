@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block title %}Facture {{ doc }}{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'invoicing:invoice_list' %}">← Factures</a></p>
+
+<div class="page-header">
+  <hgroup>
+    <h1>{% if doc.is_draft %}Facture – brouillon{% else %}Facture {{ doc.number }}{% endif %} {% include "includes/invoice_status_badge.html" %}</h1>
+    <p>
+      <a href="{% url 'clients:client_detail' doc.client_id %}">{{ doc.client_name|default:doc.client.display_name }}</a>
+      {% if doc.booking %} · réservation <a href="{% url 'storage:booking_detail' doc.booking.pk %}">{{ doc.booking.vehicle.plate }} ({{ doc.booking.row.code }})</a>{% endif %}
+    </p>
+  </hgroup>
+  <div class="actions">
+    {% if doc.is_draft %}
+      <a href="{% url 'invoicing:invoice_edit' doc.pk %}" role="button" class="outline">Modifier</a>
+      <form method="post" action="{% url 'invoicing:invoice_issue' doc.pk %}"
+            onsubmit="return confirm('Émettre la facture ? Elle recevra son numéro définitif et ne pourra plus être modifiée.');">
+        {% csrf_token %}<button type="submit">Émettre</button>
+      </form>
+      <form method="post" action="{% url 'invoicing:invoice_delete' doc.pk %}" onsubmit="return confirm('Supprimer ce brouillon ?');">
+        {% csrf_token %}<button type="submit" class="secondary outline">Supprimer le brouillon</button>
+      </form>
+    {% else %}
+      <a href="{% url 'invoicing:document_pdf' 'facture' doc.pk %}" role="button" target="_blank">Télécharger le PDF</a>
+      <form method="post" action="{% url 'invoicing:document_email' 'facture' doc.pk %}">
+        {% csrf_token %}<button type="submit" class="secondary">Envoyer par email</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+{% include "invoicing/_missing_company.html" %}
+{% if doc.is_draft %}
+  <article class="notice">Brouillon : pas encore de numéro. Vérifiez les lignes, puis cliquez sur « Émettre ».
+  La facture deviendra alors définitive (non modifiable, non supprimable).</article>
+{% endif %}
+
+<div class="grid">
+  <article>
+    <header><h2>Informations</h2></header>
+    <dl class="details">
+      <dt>Date d'émission</dt><dd>{{ doc.issue_date|date|default:"—" }}</dd>
+      <dt>Échéance</dt><dd>{{ doc.due_date|date|default:"—" }}</dd>
+      <dt>Communication</dt><dd>{{ doc.structured_reference|default:"—" }}</dd>
+      {% if doc.emailed_at %}<dt>Envoyée</dt><dd>le {{ doc.emailed_at|date:"d/m/Y H:i" }}</dd>{% endif %}
+    </dl>
+  </article>
+  {% if not doc.is_draft %}
+  <article>
+    <header><h2>Paiement</h2></header>
+    {% if doc.status == "paid" %}
+      <p>Payée le <strong>{{ doc.paid_on|date }}</strong> ({{ doc.get_payment_method_display }}){% if doc.payment_note %} – {{ doc.payment_note }}{% endif %}.</p>
+      <form method="post" action="{% url 'invoicing:invoice_unpay' doc.pk %}">
+        {% csrf_token %}<button type="submit" class="secondary outline small">Annuler le paiement</button>
+      </form>
+    {% elif doc.status == "issued" %}
+      <form method="post" action="{% url 'invoicing:invoice_pay' doc.pk %}" class="payment-form">
+        {% csrf_token %}
+        <div class="field-grid">
+          <div>{% include "includes/field.html" with field=payment_form.paid_on %}</div>
+          <div>{% include "includes/field.html" with field=payment_form.payment_method %}</div>
+        </div>
+        {% include "includes/field.html" with field=payment_form.payment_note %}
+        <button type="submit">Marquer payée</button>
+      </form>
+    {% else %}
+      <p class="muted">Facture annulée par note de crédit.</p>
+    {% endif %}
+  </article>
+  {% endif %}
+</div>
+
+<article>
+  <header><h2>Lignes</h2></header>
+  {% include "invoicing/_document_lines.html" %}
+</article>
+
+{% if not doc.is_draft %}
+<article>
+  <header><h2>Notes de crédit</h2></header>
+  {% if credit_notes %}
+    <ul>
+      {% for cn in credit_notes %}
+        <li><a href="{% url 'invoicing:credit_note_detail' cn.pk %}">{{ cn }}</a> – {{ cn.reason }} – {{ cn.total_incl_vat|money }} ({{ cn.get_status_display|lower }})</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  {% if doc.status != "cancelled" and remaining_to_credit > 0 %}
+    <form method="post" action="{% url 'invoicing:credit_note_create' doc.pk %}">
+      {% csrf_token %}
+      <fieldset role="group">
+        <input type="text" name="reason" placeholder="Motif (ex. erreur de période)" aria-label="Motif" required>
+        <button type="submit" class="secondary">Créer une note de crédit</button>
+      </fieldset>
+      <small class="muted">La note reprend toutes les lignes de la facture ; modifiez-les avant d'émettre pour ne créditer qu'une partie
+      (reste à créditer : {{ remaining_to_credit|money }}).</small>
+    </form>
+  {% elif not credit_notes %}
+    <p class="muted">Aucune.</p>
+  {% endif %}
+</article>
+{% endif %}
+{% endblock %}
