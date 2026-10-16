@@ -12,7 +12,7 @@ storage ends.
 | Milestone | Content | State |
 |---|---|---|
 | M0 | Scaffold: project, apps, `.env` config, French locale, login, base layout | Done |
-| M1 | Settings & rows | To do |
+| M1 | Settings & rows: Paramètres page, rows table with inline edit and bulk create | Done |
 | M2 | Clients & vehicles | To do |
 | M3 | Booking engine | To do |
 | M4 | Planning grid | To do |
@@ -101,6 +101,16 @@ or templates, so it can be unit-tested.
   `/admin/`.
 - **Front-end libraries** are plain files in `static/`. To upgrade Pico.css or HTMX, download
   the new minified file and replace the old one.
+- **Paramètres** (`/parametres/`) holds every business setting: row length, safety gap,
+  price, VAT, company details printed on invoices, reminder texts. Nothing is hard-coded:
+  code reads values with `AppSettings.load()`. Bookings and invoices copy the price and VAT
+  when they are created, so changing a setting never alters existing ones.
+- **Rows** are created on the Paramètres page ("Créer les rangées" numbers them after the
+  existing ones: R01, R02, …) and edited inline in the table.
+- **Uploaded files** (the logo, later the invoice PDFs) are never served publicly: they go
+  through views that require login (for example `/parametres/logo/`).
+- **"Envoyer un email de test"** sends an email to the logged-in user (or to the admin emails)
+  to check the SMTP settings in `.env`.
 - **SQLite** runs in WAL mode with a 5-second busy timeout; this is set in `config/settings.py`.
 
 ## Production
