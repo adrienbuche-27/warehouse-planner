@@ -17,8 +17,9 @@ class ClientType(models.TextChoices):
 class Client(models.Model):
     """A customer storing one or more vehicles. Clients never log in.
 
-    Invoices copy the client's name and address when they are issued, so editing a
-    client never changes past invoices.
+    The address and phone are required: invoices need the address, and the phone is the
+    usual way to reach the client about their vehicle. Invoices copy the client's name and
+    address when they are issued, so editing a client never changes past invoices.
     """
 
     client_type = models.CharField(
@@ -34,12 +35,12 @@ class Client(models.Model):
         validators=[validators.validate_vat_number],
         help_text="Obligatoire pour une entreprise. Ex. BE0123456789.",
     )
-    street = models.CharField("rue et numéro", max_length=200, blank=True)
-    postal_code = models.CharField("code postal", max_length=10, blank=True)
-    city = models.CharField("localité", max_length=100, blank=True)
+    street = models.CharField("rue et numéro", max_length=200)
+    postal_code = models.CharField("code postal", max_length=10)
+    city = models.CharField("localité", max_length=100)
     country = models.CharField("pays", max_length=100, default="Belgique")
     email = models.EmailField("email", help_text="Utilisé pour les rappels de fin de stockage.")
-    phone = models.CharField("téléphone", max_length=50, blank=True)
+    phone = models.CharField("téléphone", max_length=50)
     notes = models.TextField("notes", blank=True)
     is_archived = models.BooleanField(
         "archivé",

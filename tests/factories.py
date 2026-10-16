@@ -15,6 +15,9 @@ def make_client(**fields) -> Client:
         "first_name": "Jean",
         "last_name": f"Dupont{n}",
         "email": f"client{n}@example.be",
+        "phone": "0470 12 34 56",
+        "street": "Rue de la Gare 1",
+        "postal_code": "6700",
         "city": "Arlon",
     }
     values.update(fields)

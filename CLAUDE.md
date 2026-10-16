@@ -118,9 +118,9 @@ Only one row may exist. Enforce this in `save()` and expose it through `AppSetti
 | `first_name`, `last_name` | Char | Required for private |
 | `company_name` | Char | Required for business |
 | `vat_number` | Char | Required for business; validated format `BE` + 10 digits (accept other EU prefixes too) |
-| `street`, `postal_code`, `city`, `country` | Char | Country default "Belgique" |
+| `street`, `postal_code`, `city`, `country` | Char | Required (printed on invoices). Country default "Belgique" |
 | `email` | Email | Required (reminders) |
-| `phone` | Char | |
+| `phone` | Char | Required |
 | `notes` | Text | |
 | `created_at`, `updated_at` | DateTime | |
 
