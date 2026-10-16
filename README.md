@@ -16,7 +16,7 @@ storage ends.
 | M2 | Clients & vehicles: lists with live search, forms, archive, delete | Done |
 | M3 | Booking engine: fit check, boxed-in detection, suggestions, booking screens | Done |
 | M4 | Planning grid: rows × 2-week windows, cell details, free-space filter | Done |
-| M5 | Invoicing | To do |
+| M5 | Invoicing: drafts, gap-free numbering, PDF, payments, credit notes, email | Done |
 | M6 | Reminders | To do |
 | M7 | Dashboard | To do |
 | M8 | Deployment kit | To do |
@@ -83,7 +83,7 @@ config/       Django project: settings, URLs, French date formats (config/format
 core/         Shared code: dashboard, formatting helpers (money as "1 234,56 €")
 clients/      Clients and vehicles, search (clients/services.py)
 storage/      Rows, bookings, planning; rules in storage/services.py and storage/planning.py
-invoicing/    Invoices, credit notes, PDF generation (M5)
+invoicing/    Invoices, credit notes, numbering, PDF and email (invoicing/services.py)
 reminders/    Reminder emails and the send_reminders command (M6)
 templates/    HTML templates (French), including the login pages in registration/
 static/       Pico.css, HTMX and project CSS, vendored (no build step, no CDN)
@@ -126,12 +126,29 @@ or templates, so it can be unit-tested.
   in when entering or leaving. Click a cell for its vehicles, move plans and "Nouvelle
   réservation ici". "Espace libre min." keeps rows with that much free space in at least one
   window and dims the other windows.
+- **Invoices** (`invoicing/services.py`) follow CLAUDE.md section 8, to be validated by the
+  accountant before go-live:
+  - "Créer la facture" on a booking makes a draft for its periods not invoiced yet (after
+    "Prolonger", only the added periods: the complementary invoice). Drafts are editable and
+    have no number. "+ Facture manuelle" makes a draft not linked to a booking.
+  - "Émettre" assigns the number (`AAAA-NNNN`, gap-free per year), copies the client and company
+    details, computes the totals (VAT per line), the structured communication and stores the PDF
+    in `media/invoices/AAAA/`. Issuing is refused while the company name, address, VAT number
+    or IBAN are missing in Paramètres. If anything fails, nothing is saved and no number is used.
+  - Issued invoices and credit notes are read-only and can never be deleted (model, screens and
+    admin). Only the payment fields can change: "Marquer payée" / "Annuler le paiement".
+  - "Créer une note de crédit" copies all the lines of the invoice; edit them before issuing to
+    credit only part of it. Credit notes are numbered `NC-AAAA-NNNN`. When the credit notes cover
+    the whole invoice, the invoice becomes "Annulée".
+  - The PDF layout and legal wording are in `templates/invoicing/invoice_pdf.html`; the email
+    text is in `templates/invoicing/email_document.txt`.
 - **Settings that shrink rows** (shorter default length or override, bigger gap) list the
   current and future bookings that would no longer fit and ask "Enregistrer quand même".
   A row with current or future bookings cannot be deactivated. Nothing is moved automatically.
 - **`python manage.py seed_demo`** creates demo data (40 rows, 60 clients, 80 vehicles and
-  their bookings, some of them boxed in). It refuses to run when `DJANGO_DEBUG` is off, unless
-  `--force`; use `--reset` to replace existing data. Never run it in production.
+  their bookings, some of them boxed in) and fills the empty company details. It refuses to run
+  when `DJANGO_DEBUG` is off, unless `--force`; `--reset` replaces all existing data, including
+  invoices (always refused in production when issued invoices exist). Never run it in production.
 - **Uploaded files** (the logo, later the invoice PDFs) are never served publicly: they go
   through views that require login (for example `/parametres/logo/`).
 - **"Envoyer un email de test"** sends an email to the logged-in user (or to the admin emails)
