@@ -13,7 +13,7 @@ storage ends.
 |---|---|---|
 | M0 | Scaffold: project, apps, `.env` config, French locale, login, base layout | Done |
 | M1 | Settings & rows: Paramètres page, rows table with inline edit and bulk create | Done |
-| M2 | Clients & vehicles | To do |
+| M2 | Clients & vehicles: lists with live search, forms, archive, delete | Done |
 | M3 | Booking engine | To do |
 | M4 | Planning grid | To do |
 | M5 | Invoicing | To do |
@@ -80,7 +80,7 @@ project root. It is never committed; `.env.example` lists every variable.
 ```
 config/       Django project: settings, URLs, French date formats (config/formats/)
 core/         Shared code: dashboard, formatting helpers (money as "1 234,56 €")
-clients/      Clients and vehicles (M2)
+clients/      Clients and vehicles, search (clients/services.py)
 storage/      Rows, bookings, planning, fit and boxed-in logic (M1, M3, M4)
 invoicing/    Invoices, credit notes, PDF generation (M5)
 reminders/    Reminder emails and the send_reminders command (M6)
@@ -107,6 +107,10 @@ or templates, so it can be unit-tested.
   when they are created, so changing a setting never alters existing ones.
 - **Rows** are created on the Paramètres page ("Créer les rangées" numbers them after the
   existing ones: R01, R02, …) and edited inline in the table.
+- **Clients and vehicles** can be archived instead of deleted. Archived ones are hidden from
+  lists (tick "Inclure les archivés" to see them); a vehicle whose client is archived counts as
+  archived too. Deleting is refused as soon as bookings or invoices are linked: those links are
+  declared with `on_delete=PROTECT`, and `core.services.protected_objects()` reports them.
 - **Uploaded files** (the logo, later the invoice PDFs) are never served publicly: they go
   through views that require login (for example `/parametres/logo/`).
 - **"Envoyer un email de test"** sends an email to the logged-in user (or to the admin emails)
