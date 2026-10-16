@@ -14,7 +14,7 @@ storage ends.
 | M0 | Scaffold: project, apps, `.env` config, French locale, login, base layout | Done |
 | M1 | Settings & rows: Paramètres page, rows table with inline edit and bulk create | Done |
 | M2 | Clients & vehicles: lists with live search, forms, archive, delete | Done |
-| M3 | Booking engine | To do |
+| M3 | Booking engine: fit check, boxed-in detection, suggestions, booking screens | Done |
 | M4 | Planning grid | To do |
 | M5 | Invoicing | To do |
 | M6 | Reminders | To do |
@@ -39,6 +39,7 @@ pip install -r requirements-dev.txt
 cp .env.example .env            # then set DJANGO_DEBUG=True in .env
 python manage.py migrate
 python manage.py createsuperuser
+python manage.py seed_demo      # optional: demo rows, clients, vehicles and bookings
 python manage.py runserver
 ```
 
@@ -81,7 +82,7 @@ project root. It is never committed; `.env.example` lists every variable.
 config/       Django project: settings, URLs, French date formats (config/formats/)
 core/         Shared code: dashboard, formatting helpers (money as "1 234,56 €")
 clients/      Clients and vehicles, search (clients/services.py)
-storage/      Rows, bookings, planning, fit and boxed-in logic (M1, M3, M4)
+storage/      Rows and bookings; business rules in storage/services.py (planning: M4)
 invoicing/    Invoices, credit notes, PDF generation (M5)
 reminders/    Reminder emails and the send_reminders command (M6)
 templates/    HTML templates (French), including the login pages in registration/
@@ -111,6 +112,20 @@ or templates, so it can be unit-tested.
   lists (tick "Inclure les archivés" to see them); a vehicle whose client is archived counts as
   archived too. Deleting is refused as soon as bookings or invoices are linked: those links are
   declared with `on_delete=PROTECT`, and `core.services.protected_objects()` reports them.
+- **Bookings** (`storage/services.py`) follow CLAUDE.md section 6:
+  - `check_fit()` refuses a booking that does not fit in its row on every day of its stay,
+    a position already taken, or a vehicle booked twice at the same time;
+  - `get_blockers()` / `move_plans()` list the vehicles to move first when a vehicle is
+    boxed in (closest to the aisle first, put back in reverse order);
+  - `suggest_placements()` ranks rows and positions: fewest blocking situations, then the
+    tightest fit, then the row order.
+  The booking keeps the price and VAT of the day it was created. "Prolonger" keeps that price.
+- **Settings that shrink rows** (shorter default length or override, bigger gap) list the
+  current and future bookings that would no longer fit and ask "Enregistrer quand même".
+  A row with current or future bookings cannot be deactivated. Nothing is moved automatically.
+- **`python manage.py seed_demo`** creates demo data (40 rows, 60 clients, 80 vehicles and
+  their bookings, some of them boxed in). It refuses to run when `DJANGO_DEBUG` is off, unless
+  `--force`; use `--reset` to replace existing data. Never run it in production.
 - **Uploaded files** (the logo, later the invoice PDFs) are never served publicly: they go
   through views that require login (for example `/parametres/logo/`).
 - **"Envoyer un email de test"** sends an email to the logged-in user (or to the admin emails)
