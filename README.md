@@ -15,7 +15,7 @@ storage ends.
 | M1 | Settings & rows: Paramètres page, rows table with inline edit and bulk create | Done |
 | M2 | Clients & vehicles: lists with live search, forms, archive, delete | Done |
 | M3 | Booking engine: fit check, boxed-in detection, suggestions, booking screens | Done |
-| M4 | Planning grid | To do |
+| M4 | Planning grid: rows × 2-week windows, cell details, free-space filter | Done |
 | M5 | Invoicing | To do |
 | M6 | Reminders | To do |
 | M7 | Dashboard | To do |
@@ -82,7 +82,7 @@ project root. It is never committed; `.env.example` lists every variable.
 config/       Django project: settings, URLs, French date formats (config/formats/)
 core/         Shared code: dashboard, formatting helpers (money as "1 234,56 €")
 clients/      Clients and vehicles, search (clients/services.py)
-storage/      Rows and bookings; business rules in storage/services.py (planning: M4)
+storage/      Rows, bookings, planning; rules in storage/services.py and storage/planning.py
 invoicing/    Invoices, credit notes, PDF generation (M5)
 reminders/    Reminder emails and the send_reminders command (M6)
 templates/    HTML templates (French), including the login pages in registration/
@@ -120,6 +120,12 @@ or templates, so it can be unit-tested.
   - `suggest_placements()` ranks rows and positions: fewest blocking situations, then the
     tightest fit, then the row order.
   The booking keeps the price and VAT of the day it was created. "Prolonger" keeps that price.
+- **Planning** (`/planning/`, logic in `storage/planning.py`) shows 13 windows of 2 weeks from
+  the Monday of the current week. Each cell is the peak occupancy of the row in that window
+  (green below 70 %, orange 70–95 %, red above 95 %) with ⚠ when a vehicle of the row is boxed
+  in when entering or leaving. Click a cell for its vehicles, move plans and "Nouvelle
+  réservation ici". "Espace libre min." keeps rows with that much free space in at least one
+  window and dims the other windows.
 - **Settings that shrink rows** (shorter default length or override, bigger gap) list the
   current and future bookings that would no longer fit and ask "Enregistrer quand même".
   A row with current or future bookings cannot be deactivated. Nothing is moved automatically.
