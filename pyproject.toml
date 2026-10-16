@@ -18,3 +18,8 @@ DJANGO_SETTINGS_MODULE = "config.settings_test"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "--strict-markers"
+markers = ["real_pdf: render a real PDF with WeasyPrint (slower)"]
+filterwarnings = [
+    # Harmless on systems without libharfbuzz-subset (see README, WeasyPrint requirements).
+    "ignore:HarfBuzz-Subset will be required:DeprecationWarning",
+]

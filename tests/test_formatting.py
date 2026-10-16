@@ -69,3 +69,11 @@ def test_format_metres_short():
     assert format_metres_short(Decimal("7.99")) == "7,99"
     assert format_metres_short(Decimal("0")) == "0"
     assert format_metres_short(Decimal("20")) == "20"
+
+
+def test_format_iban():
+    from core.formatting import format_iban
+
+    assert format_iban("be68539007547034") == "BE68 5390 0754 7034"
+    assert format_iban("BE68 5390 0754 7034") == "BE68 5390 0754 7034"
+    assert format_iban("") == ""
