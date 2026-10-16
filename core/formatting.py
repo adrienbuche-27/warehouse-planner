@@ -19,3 +19,11 @@ def format_money(amount: Decimal | int | str | None) -> str:
     integer_part, decimal_part = f"{abs(value):.2f}".split(".")
     grouped = f"{int(integer_part):,}".replace(",", NBSP)
     return f"{sign}{grouped},{decimal_part}{NBSP}€"
+
+
+def format_metres(value: Decimal | int | str | None) -> str:
+    """Format a length as `16,50 m`. Returns an empty string for None."""
+    if value is None:
+        return ""
+    quantized = Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return f"{quantized}".replace(".", ",") + f"{NBSP}m"

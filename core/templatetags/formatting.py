@@ -1,8 +1,8 @@
-"""Template filters. Usage: {% load formatting %} then {{ invoice.total_incl_vat|money }}."""
+"""Template filters. Usage: {% load formatting %} then {{ amount|money }} or {{ length|metres }}."""
 
 from django import template
 
-from core.formatting import format_money
+from core.formatting import format_metres, format_money
 
 register = template.Library()
 
@@ -10,3 +10,8 @@ register = template.Library()
 @register.filter
 def money(amount):
     return format_money(amount)
+
+
+@register.filter
+def metres(value):
+    return format_metres(value)
