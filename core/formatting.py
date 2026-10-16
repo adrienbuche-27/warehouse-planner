@@ -27,3 +27,14 @@ def format_metres(value: Decimal | int | str | None) -> str:
         return ""
     quantized = Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return f"{quantized}".replace(".", ",") + f"{NBSP}m"
+
+
+def format_metres_short(value: Decimal | int | str | None) -> str:
+    """Compact length without useless zeros, for the planning grid: 13,5 / 16 / 7,99."""
+    if value is None:
+        return ""
+    quantized = Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    text = f"{quantized}"
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text.replace(".", ",")

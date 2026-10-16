@@ -9,6 +9,13 @@ urlpatterns = [
     path("parametres/rangees/creer/", views.row_bulk_create, name="row_bulk_create"),
     path("parametres/rangees/<int:pk>/", views.row_display, name="row_display"),
     path("parametres/rangees/<int:pk>/modifier/", views.row_edit, name="row_edit"),
+    # Planning
+    path("planning/", views.planning, name="planning"),
+    path(
+        "planning/rangee/<int:row_pk>/<str:start>/",
+        views.planning_cell,
+        name="planning_cell",
+    ),
     # Bookings
     path("reservations/", views.booking_list, name="booking_list"),
     path("reservations/nouvelle/", views.booking_create, name="booking_create"),

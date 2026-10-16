@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -13,6 +14,7 @@ from clients.models import Client, Vehicle
 from core.forms import BulkRowCreateForm
 from core.models import AppSettings
 from core.pricing import compute_totals
+from storage import planning as planning_module
 from storage import services
 from storage.forms import BookingForm, ExtendForm, QuickVehicleForm, RowForm, StatusDateForm
 from storage.models import Booking, BookingStatus, Row, compute_end_date
@@ -344,3 +346,56 @@ def booking_quick_vehicle(request):
         return response
     form = QuickVehicleForm()
     return render(request, "storage/_quick_vehicle_form.html", {"form": form, "client": client})
+
+
+# --- Planning ----------------------------------------------------------------
+
+
+def _parse_decimal(value):
+    try:
+        number = Decimal((value or "").replace(",", "."))
+    except InvalidOperation:
+        return None
+    return number if number > 0 else None
+
+
+def planning(request):
+    """Grid of rows × 2-week windows, from the Monday of the current week by default."""
+    today = services.today()
+    start = planning_module.monday_of(_parse_date(request.GET.get("debut")) or today)
+    min_free = _parse_decimal(request.GET.get("libre"))
+    grid = planning_module.build_grid(start, min_free_m=min_free)
+    period_days = AppSettings.load().period_days
+    step = datetime.timedelta(days=period_days)
+    context = {
+        "grid": grid,
+        "today": today,
+        "min_free": min_free,
+        "nav": {
+            "page_back": start - step * planning_module.WINDOW_COUNT,
+            "back": start - step,
+            "today": planning_module.monday_of(today),
+            "forward": start + step,
+            "page_forward": start + step * planning_module.WINDOW_COUNT,
+        },
+    }
+    return render(request, "storage/planning.html", context)
+
+
+def planning_cell(request, row_pk, start):
+    """Panel opened by clicking a cell: the vehicles of the row during the window."""
+    row = get_object_or_404(Row, pk=row_pk)
+    window_start = _parse_date(start)
+    if window_start is None:
+        raise Http404
+    period_days = AppSettings.load().period_days
+    window_end = window_start + datetime.timedelta(days=period_days - 1)
+    context = {
+        "row": row,
+        "window_start": window_start,
+        "window_end": window_end,
+        "vehicles": planning_module.cell_details(row, window_start, window_end),
+        # A new booking cannot start in the past: use today if the window has begun.
+        "new_booking_start": max(window_start, services.today()),
+    }
+    return render(request, "storage/_planning_cell.html", context)
