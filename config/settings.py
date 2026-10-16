@@ -28,7 +28,10 @@ if not SECRET_KEY:
         raise ImproperlyConfigured("Set DJANGO_SECRET_KEY in the .env file (see .env.example).")
     SECRET_KEY = "insecure-dev-key-do-not-use-in-production"
 
-ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS") or (["localhost", "127.0.0.1"] if DEBUG else [])
+ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
+if DEBUG:
+    # In development, the local addresses always work, whatever .env contains.
+    ALLOWED_HOSTS = [*ALLOWED_HOSTS, "localhost", "127.0.0.1", "[::1]"]
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 

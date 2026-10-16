@@ -47,7 +47,7 @@ Open <http://127.0.0.1:8000/> and log in with the user you just created.
 In development (`DJANGO_DEBUG=True`):
 
 - `DJANGO_SECRET_KEY` may be left empty: a throwaway key is used.
-- `DJANGO_ALLOWED_HOSTS` may be left empty: `localhost` and `127.0.0.1` are allowed.
+- `localhost` and `127.0.0.1` are always allowed, whatever `DJANGO_ALLOWED_HOSTS` contains.
 - If `EMAIL_HOST` is empty, emails (for example "mot de passe oublié") are printed in the
   terminal running `runserver` instead of being sent.
 

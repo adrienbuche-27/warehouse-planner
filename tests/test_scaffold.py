@@ -1,6 +1,11 @@
 """M0: the app boots, everything is behind login, and the UI is in French."""
 
+import os
+import subprocess
+import sys
+
 import pytest
+from django.conf import settings
 from django.db import connection
 from django.urls import reverse
 
@@ -88,3 +93,28 @@ def test_sqlite_pragmas_are_set_on_connection():
         assert cursor.fetchone()[0] == 1
         cursor.execute("PRAGMA busy_timeout")
         assert cursor.fetchone()[0] == 5000
+
+
+def _allowed_hosts_with_env(**env_vars):
+    """Import the real settings in a fresh process with the given environment variables."""
+    env = {**os.environ, "DJANGO_SECRET_KEY": "x", **env_vars}
+    output = subprocess.check_output(
+        [sys.executable, "-c", "import config.settings as s; print(','.join(s.ALLOWED_HOSTS))"],
+        env=env,
+        cwd=settings.BASE_DIR,
+        text=True,
+    )
+    return output.strip().split(",")
+
+
+def test_debug_allows_localhost_even_when_hosts_are_configured():
+    # Reproduces `cp .env.example .env` + DJANGO_DEBUG=True, which keeps the example domain.
+    hosts = _allowed_hosts_with_env(DJANGO_DEBUG="True", DJANGO_ALLOWED_HOSTS="stockage.example.be")
+    assert {"stockage.example.be", "localhost", "127.0.0.1"} <= set(hosts)
+
+
+def test_production_only_allows_configured_hosts():
+    hosts = _allowed_hosts_with_env(
+        DJANGO_DEBUG="False", DJANGO_ALLOWED_HOSTS="stockage.example.be"
+    )
+    assert hosts == ["stockage.example.be"]
