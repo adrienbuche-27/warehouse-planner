@@ -114,7 +114,7 @@ class Command(BaseCommand):
         app_settings = AppSettings.load()
         if app_settings.price_per_period is None:
             app_settings.price_per_period = Decimal("45.00")
-        demo_company = {
+        demo_values = {
             "company_name": "Stockage Démo",
             "company_legal_form": "SRL",
             "company_address": "Rue de la Gare 1\n6700 Arlon",
@@ -125,9 +125,10 @@ class Command(BaseCommand):
             "company_bic": "GKCCBEBB",
             "company_email": "contact@stockage-demo.be",
             "company_phone": "063 12 34 56",
+            "admin_notification_emails": "admin@stockage-demo.be",
         }
-        # Only fill what is still empty: never overwrite real company details.
-        for field, value in demo_company.items():
+        # Only fill what is still empty: never overwrite real settings.
+        for field, value in demo_values.items():
             if not getattr(app_settings, field):
                 setattr(app_settings, field, value)
         app_settings.save()
