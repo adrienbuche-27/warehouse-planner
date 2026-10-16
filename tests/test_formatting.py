@@ -59,3 +59,13 @@ def test_format_metres():
     assert format_metres(Decimal("16")) == f"16,00{NBSP}m"
     assert format_metres(Decimal("7.995")) == f"8,00{NBSP}m"
     assert format_metres(None) == ""
+
+
+def test_format_metres_short():
+    from core.formatting import format_metres_short
+
+    assert format_metres_short(Decimal("16.00")) == "16"
+    assert format_metres_short(Decimal("13.50")) == "13,5"
+    assert format_metres_short(Decimal("7.99")) == "7,99"
+    assert format_metres_short(Decimal("0")) == "0"
+    assert format_metres_short(Decimal("20")) == "20"
