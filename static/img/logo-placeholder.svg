@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Logo">
+  <!-- Placeholder logo: replace with the company logo (also uploadable in Paramètres for invoices). -->
+  <rect width="32" height="32" rx="6" fill="#1565c0"/>
+  <path d="M5 20V12a2 2 0 0 1 2-2h12l5 4h1a2 2 0 0 1 2 2v4z" fill="#fff"/>
+  <circle cx="10" cy="22" r="2.5" fill="#fff" stroke="#1565c0" stroke-width="1.5"/>
+  <circle cx="22" cy="22" r="2.5" fill="#fff" stroke="#1565c0" stroke-width="1.5"/>
+  <rect x="8" y="12.5" width="4" height="3" fill="#1565c0"/>
+  <rect x="14" y="12.5" width="4" height="3" fill="#1565c0"/>
+</svg>

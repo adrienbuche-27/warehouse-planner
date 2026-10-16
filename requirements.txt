@@ -1,0 +1,5 @@
+# Runtime dependencies (pinned). Do not add new ones without discussing it first (see CLAUDE.md).
+Django==5.2.18
+django-environ==0.14.0
+weasyprint==70.0
+gunicorn==26.2.0

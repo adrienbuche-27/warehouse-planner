@@ -1,0 +1,20 @@
+[project]
+name = "gestion-stockage-camping-cars"
+version = "0.0.0"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: import sorting, UP: modern syntax,
+# B: common bugs, DJ: Django best practices
+select = ["E", "W", "F", "I", "UP", "B", "DJ"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings_test"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--strict-markers"

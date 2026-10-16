@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Tableau de bord{% endblock %}
+
+{% block content %}
+<hgroup>
+  <h1>Tableau de bord</h1>
+  <p>Vue d'ensemble de l'entrepôt.</p>
+</hgroup>
+
+<article class="empty-state">
+  <p>Aucune donnée pour le moment.</p>
+  <p><small>Les indicateurs (occupation, fins de stockage, prochaines entrées, factures impayées)
+  apparaîtront ici dès que les rangées, les clients et les réservations seront enregistrés.</small></p>
+</article>
+{% endblock %}

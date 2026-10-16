@@ -1,0 +1,62 @@
+/* Project styles, on top of Pico.css (https://picocss.com). Keep this file small. */
+
+:root {
+  --app-ok: #2e7d32;      /* green: < 70 % occupied */
+  --app-warn: #ef6c00;    /* orange: 70-95 % */
+  --app-danger: #c62828;  /* red: > 95 % */
+}
+
+/* Header and navigation */
+.site-header {
+  border-bottom: 1px solid var(--pico-muted-border-color);
+  margin-bottom: var(--pico-spacing);
+}
+.site-header nav {
+  flex-wrap: wrap;
+}
+.site-header nav a {
+  white-space: nowrap;
+}
+.main-nav {
+  font-size: 0.95rem;
+}
+.site-header .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+.main-nav a[aria-current="page"] {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+.main-nav a[aria-disabled="true"] {
+  color: var(--pico-muted-color);
+  cursor: not-allowed;
+}
+.logout-form {
+  margin: 0;
+}
+.logout-form button {
+  margin: 0;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.875rem;
+}
+
+/* Login and password reset pages */
+.auth-card {
+  max-width: 28rem;
+  margin: 4rem auto;
+}
+
+/* Flash messages and errors */
+.message-success { border-left: 4px solid var(--app-ok); }
+.message-warning { border-left: 4px solid var(--app-warn); }
+.message-error { border-left: 4px solid var(--app-danger); }
+.error { color: var(--app-danger); }
+
+.empty-state {
+  text-align: center;
+  color: var(--pico-muted-color);
+}
