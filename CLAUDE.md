@@ -2,7 +2,7 @@
 
 Internal web app to manage a camping-car storage warehouse: clients and vehicles, space planning in 2-week periods, Belgian-compliant PDF invoices, and email reminders before storage ends.
 
-> **For Claude Code:** this README is the full specification. Implement it milestone by milestone (section 12), committing as described in section 13. When something here is ambiguous or conflicts with a technical constraint, stop and ask rather than guessing. Code, comments, commit messages and identifiers are in **English**; everything the user sees (UI, emails, PDFs) is in **French**.
+> **For Claude Code:** this file is the full specification (`README.md` is the short guide for users and maintainers). Implement it milestone by milestone (section 12), committing as described in section 13. When something here is ambiguous or conflicts with a technical constraint, stop and ask rather than guessing. Code, comments, commit messages and identifiers are in **English**; everything the user sees (UI, emails, PDFs) is in **French**.
 
 ---
 
@@ -41,7 +41,8 @@ Dependencies are pinned in `requirements.txt` (runtime) and `requirements-dev.tx
 
 ```
 .
-├── README.md
+├── README.md               # setup and maintenance guide
+├── CLAUDE.md               # this specification
 ├── .env.example
 ├── .gitignore              # db.sqlite3, .env, media/, venv/, __pycache__/, backups/
 ├── requirements.txt
