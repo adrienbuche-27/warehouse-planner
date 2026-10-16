@@ -1,0 +1,5 @@
+{% autoescape off %}Entrées bloquées dans les {{ days }} prochains jours (au {{ today|date:"d/m/Y" }}) :
+{% for plan in plans %}
+- {{ plan.booking.start_date|date:"d/m/Y" }} · {{ plan.booking.vehicle.plate }} · {{ plan.booking.vehicle.client.display_name }} · {{ plan.booking.row.code }} pos. {{ plan.booking.position }}
+  {{ plan.as_text }}
+{% endfor %}{% endautoescape %}
