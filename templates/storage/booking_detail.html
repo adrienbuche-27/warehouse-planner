@@ -64,6 +64,29 @@
   {% if invoices and not uninvoiced_periods %}<footer><small class="muted">Toutes les périodes sont facturées.</small></footer>{% endif %}
 </article>
 
+<article id="rappels">
+  <header><h2>Rappels</h2></header>
+  {% if reminders %}
+    <div class="overflow-auto">
+      <table class="striped">
+        <thead><tr><th scope="col">Date</th><th scope="col">Type</th><th scope="col">Destinataires</th><th scope="col">Résultat</th></tr></thead>
+        <tbody>
+          {% for reminder in reminders %}
+          <tr>
+            <td>{{ reminder.sent_at|date:"d/m/Y H:i" }}</td>
+            <td>{{ reminder.get_kind_display }}</td>
+            <td>{{ reminder.recipients }}</td>
+            <td>{% if reminder.success %}<span class="ok">envoyé</span>{% else %}<span class="error">échec : {{ reminder.error_message }}</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">Aucun rappel envoyé pour l'instant. Le rappel part automatiquement {{ reminder_days }} jours avant la fin du stockage.</p>
+  {% endif %}
+</article>
+
 {% if booking.notes %}<article><header><h2>Notes</h2></header><p>{{ booking.notes|linebreaksbr }}</p></article>{% endif %}
 
 {% if booking.is_active %}

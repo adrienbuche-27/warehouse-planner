@@ -215,6 +215,8 @@ def booking_detail(request, pk, extend_form=None, extension=None):
     context = {
         "booking": booking,
         "invoices": booking.invoices.all(),
+        "reminders": booking.reminders.all(),
+        "reminder_days": AppSettings.load().reminder_days_before_end,
         "uninvoiced_periods": invoicing_services.uninvoiced_periods(booking),
         "move_plans": services.move_plans(booking),
         "date_form": StatusDateForm(),
