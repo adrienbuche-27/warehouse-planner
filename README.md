@@ -18,7 +18,7 @@ storage ends.
 | M4 | Planning grid: rows × 2-week windows, cell details, free-space filter | Done |
 | M5 | Invoicing: drafts, gap-free numbering, PDF, payments, credit notes, email | Done |
 | M6 | Reminders: daily email command, client and admin notices, blocked-entry digest | Done |
-| M7 | Dashboard | To do |
+| M7 | Dashboard: KPIs, next 14 days, forecast and revenue charts; reminders history page | Done |
 | M8 | Deployment kit | To do |
 
 ## Requirements
@@ -39,7 +39,7 @@ pip install -r requirements-dev.txt
 cp .env.example .env            # then set DJANGO_DEBUG=True in .env
 python manage.py migrate
 python manage.py createsuperuser
-python manage.py seed_demo      # optional: demo rows, clients, vehicles and bookings
+python manage.py seed_demo      # optional demo data (about 20 s: it also issues invoices)
 python manage.py runserver
 ```
 
@@ -80,7 +80,7 @@ project root. It is never committed; `.env.example` lists every variable.
 
 ```
 config/       Django project: settings, URLs, French date formats (config/formats/)
-core/         Shared code: dashboard, formatting helpers (money as "1 234,56 €")
+core/         Settings, dashboard and charts, shared helpers (money as "1 234,56 €")
 clients/      Clients and vehicles, search (clients/services.py)
 storage/      Rows, bookings, planning; rules in storage/services.py and storage/planning.py
 invoicing/    Invoices, credit notes, numbering, PDF and email (invoicing/services.py)
@@ -142,6 +142,15 @@ or templates, so it can be unit-tested.
     the whole invoice, the invoice becomes "Annulée".
   - The PDF layout and legal wording are in `templates/invoicing/invoice_pdf.html`; the email
     text is in `templates/invoicing/email_document.txt`.
+- **Tableau de bord** (`core/dashboard.py`): today's occupancy and free metres, bookings in
+  progress, unpaid and overdue invoices (net of partial credit notes), the end-of-storage dates
+  and the entries of the next 14 days (with "reminder sent" and ⚠ when a vehicle is boxed in),
+  failed reminders, and two charts: forecast occupancy for the next 12 two-week windows and
+  monthly revenue excl. VAT (issued invoices minus credit notes) over 12 months. The charts are
+  inline SVG computed on the server (`core/charts.py`); hover a bar for its value, or open
+  "Voir les données" for the table.
+- **Historique des rappels** (`/rappels/`, linked from the dashboard and the bookings list):
+  every reminder email sent or attempted, with filters by type, result, date and plate/client.
 - **Reminders** (`reminders/services.py`): `python manage.py send_reminders` must run once a
   day (08:00; the systemd timer comes with M8). For every active booking ending within
   "délai du rappel" days (Paramètres), it emails the client (editable text in Paramètres →
@@ -157,7 +166,8 @@ or templates, so it can be unit-tested.
   current and future bookings that would no longer fit and ask "Enregistrer quand même".
   A row with current or future bookings cannot be deactivated. Nothing is moved automatically.
 - **`python manage.py seed_demo`** creates demo data (40 rows, 60 clients, 80 vehicles and
-  their bookings, some of them boxed in) and fills the empty company details. It refuses to run
+  their bookings, some of them boxed in, past stays and their issued invoices) and fills the
+  empty company details. It refuses to run
   when `DJANGO_DEBUG` is off, unless `--force`; `--reset` replaces all existing data, including
   invoices (always refused in production when issued invoices exist). Never run it in production.
 - **Uploaded files** (the logo, later the invoice PDFs) are never served publicly: they go
