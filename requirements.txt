@@ -4,4 +4,7 @@ django-environ==0.14.0
 weasyprint==70.0
 # Image uploads (company logo). Also a WeasyPrint dependency; pinned explicitly here.
 Pillow==12.3.0
-gunicorn==26.2.0
+# Web server used on the Windows computer (gunicorn does not run on Windows).
+waitress==3.0.2
+# Serves the static files (CSS, JavaScript) when DEBUG is off.
+whitenoise==6.12.0

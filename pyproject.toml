@@ -22,4 +22,6 @@ markers = ["real_pdf: render a real PDF with WeasyPrint (slower)"]
 filterwarnings = [
     # Harmless on systems without libharfbuzz-subset (see README, WeasyPrint requirements).
     "ignore:HarfBuzz-Subset will be required:DeprecationWarning",
+    # Tests do not run collectstatic: WhiteNoise has no staticfiles/ folder to serve.
+    "ignore:No directory at:UserWarning",
 ]

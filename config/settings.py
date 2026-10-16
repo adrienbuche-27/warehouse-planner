@@ -5,6 +5,7 @@ All secrets and environment-specific values come from environment variables,
 usually loaded from a `.env` file at the project root (see `.env.example`).
 """
 
+import warnings
 from pathlib import Path
 
 import environ
@@ -28,7 +29,8 @@ if not SECRET_KEY:
         raise ImproperlyConfigured("Set DJANGO_SECRET_KEY in the .env file (see .env.example).")
     SECRET_KEY = "insecure-dev-key-do-not-use-in-production"
 
-ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
+# The app is used on the computer it runs on: localhost is the default.
+ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS") or ["localhost", "127.0.0.1"]
 if DEBUG:
     # In development, the local addresses always work, whatever .env contains.
     ALLOWED_HOSTS = [*ALLOWED_HOSTS, "localhost", "127.0.0.1", "[::1]"]
@@ -55,6 +57,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serves the CSS / JavaScript files (collected in staticfiles/) when DEBUG is off.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -142,7 +146,12 @@ FORMAT_MODULE_PATH = ["config.formats"]
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = BASE_DIR / "staticfiles"  # filled by "manage.py collectstatic"
+if DEBUG:
+    # In development the files are served straight from static/: no collectstatic needed,
+    # so WhiteNoise's warning about the missing staticfiles/ folder is irrelevant.
+    WHITENOISE_USE_FINDERS = True
+    warnings.filterwarnings("ignore", message="No directory at", module="whitenoise.base")
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -164,19 +173,35 @@ EMAIL_BACKEND = (
 )
 
 
-# Security settings for production (the app runs behind Caddy, which handles HTTPS).
+# HTTPS. The app runs on a single computer and only listens on 127.0.0.1 (waitress, see
+# deploy/windows/): nothing travels over the network, so it is used over plain http://localhost
+# and cookies cannot be marked "secure". Set DJANGO_HTTPS=True only if the app is one day put
+# behind an HTTPS reverse proxy.
 
-if not DEBUG:
+HTTPS = env.bool("DJANGO_HTTPS", default=False)
+if HTTPS:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    # Caddy redirects HTTP to HTTPS and sends the HSTS header (deploy/Caddyfile),
-    # so Django does not need to do it too.
-    SILENCED_SYSTEM_CHECKS = ["security.W004", "security.W008"]
+else:
+    # "manage.py check --deploy" warnings that only make sense with HTTPS.
+    SILENCED_SYSTEM_CHECKS = ["security.W004", "security.W008", "security.W012", "security.W016"]
 
 
-# Logging: everything at INFO level and above goes to the console
-# (captured by systemd / journalctl in production).
+# Port of the local web server (deploy/windows/run_server.py): http://localhost:8000.
+
+APP_PORT = env.int("APP_PORT", default=8000)
+
+
+# Backups (manage.py backup_data): a folder outside the project, ideally synced to the cloud
+# (OneDrive, Google Drive, Dropbox...). Never put the live database itself in a synced folder.
+
+BACKUP_DIR = Path(env("BACKUP_DIR", default="") or BASE_DIR / "backups")  # empty = default
+BACKUP_KEEP_DAYS = env.int("BACKUP_KEEP_DAYS", default=30)
+
+
+# Logging: everything at INFO level and above goes to the console. On the Windows computer the
+# scripts in deploy/windows/ write it to the logs/ folder.
 
 LOGGING = {
     "version": 1,
