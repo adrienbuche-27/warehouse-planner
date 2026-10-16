@@ -5,9 +5,11 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
+from core import dashboard as dashboard_data
 from core.forms import AppSettingsForm, BulkRowCreateForm
 from core.models import AppSettings
 from core.validators import REMINDER_PLACEHOLDERS
@@ -18,8 +20,22 @@ logger = logging.getLogger(__name__)
 
 
 def dashboard(request):
-    """Tableau de bord. KPIs, lists and charts are added in milestone M7."""
-    return render(request, "core/dashboard.html")
+    """Tableau de bord: today's figures, what is coming in the next 14 days, two charts."""
+    today = timezone.localdate()
+    context = {
+        "today": today,
+        "has_rows": Row.objects.filter(is_active=True).exists(),
+        "occupancy": dashboard_data.occupancy_on(today),
+        "active_bookings": dashboard_data.active_booking_count(),
+        "invoices": dashboard_data.invoice_figures(today),
+        "ending_soon": dashboard_data.ending_soon(today),
+        "upcoming_entries": dashboard_data.upcoming_entries(today),
+        "failed_reminders": dashboard_data.failed_reminders(today),
+        "forecast_chart": dashboard_data.occupancy_forecast_chart(today),
+        "revenue_chart": dashboard_data.revenue_chart(today),
+        "upcoming_days": dashboard_data.UPCOMING_DAYS,
+    }
+    return render(request, "core/dashboard.html", context)
 
 
 def settings_page(request):
