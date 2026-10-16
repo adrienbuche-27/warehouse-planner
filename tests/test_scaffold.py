@@ -139,3 +139,35 @@ def test_favicon_redirects_to_logo_without_login(client):
     response = client.get("/favicon.ico")
     assert response.status_code == 302
     assert response.url.endswith("img/logo-placeholder.svg")
+
+
+def _setting_with_env(name, **env_vars):
+    env = {**os.environ, "DJANGO_SECRET_KEY": "x", **env_vars}
+    output = subprocess.check_output(
+        # Django's own default applies when the settings file does not define the name.
+        [sys.executable, "-c", f"import config.settings as s; print(getattr(s, '{name}', False))"],
+        env=env,
+        cwd=settings.BASE_DIR,
+        text=True,
+    )
+    return output.strip()
+
+
+def test_empty_backup_dir_falls_back_to_the_project_backups_folder():
+    assert _setting_with_env("BACKUP_DIR", BACKUP_DIR="") == str(settings.BASE_DIR / "backups")
+    assert (
+        _setting_with_env("BACKUP_DIR", BACKUP_DIR="/srv/cloud/Sauvegardes")
+        == "/srv/cloud/Sauvegardes"
+    )
+
+
+def test_local_mode_does_not_require_https_cookies():
+    assert _setting_with_env("SESSION_COOKIE_SECURE", DJANGO_DEBUG="False") == "False"
+    assert (
+        _setting_with_env("SESSION_COOKIE_SECURE", DJANGO_DEBUG="False", DJANGO_HTTPS="True")
+        == "True"
+    )
+
+
+def test_whitenoise_serves_static_files():
+    assert "whitenoise.middleware.WhiteNoiseMiddleware" in settings.MIDDLEWARE
