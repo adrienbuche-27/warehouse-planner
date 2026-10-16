@@ -1,9 +1,13 @@
+import datetime
 from decimal import Decimal
 
-from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from core.models import AppSettings
+from clients.models import Vehicle
+from core.models import AppSettings, VatRegime
+from core.pricing import Totals, compute_totals
 
 
 class Row(models.Model):
@@ -56,3 +60,113 @@ class Row(models.Model):
         if self.length_override_m is not None:
             return self.length_override_m
         return app_settings.default_row_length_m
+
+
+class BookingStatus(models.TextChoices):
+    RESERVED = "reserved", "Réservée"
+    STORED = "stored", "En stock"
+    ENDED = "ended", "Terminée"
+    CANCELLED = "cancelled", "Annulée"
+
+
+# Only these bookings take up space (occupancy, fit check, boxed-in detection).
+ACTIVE_STATUSES = [BookingStatus.RESERVED, BookingStatus.STORED]
+
+
+def compute_end_date(start_date: datetime.date, periods: int, period_days: int) -> datetime.date:
+    """Last day of storage, inclusive: start + periods × period_days − 1 day.
+
+    Example: 1 period of 14 days from Monday 1 March ends on Sunday 14 March.
+    """
+    return start_date + datetime.timedelta(days=periods * period_days - 1)
+
+
+class BookingQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(status__in=ACTIVE_STATUSES)
+
+    def overlapping(self, start: datetime.date, end: datetime.date):
+        """Bookings present on at least one day of [start, end] (both inclusive)."""
+        return self.filter(start_date__lte=end, end_date__gte=start)
+
+
+class Booking(models.Model):
+    """A vehicle stored at a position in a row for a number of 2-week periods.
+
+    Position 1 is closest to the aisle. The price and VAT are copied from the settings when
+    the booking is created, so later changes to the settings never alter it.
+    """
+
+    vehicle = models.ForeignKey(
+        Vehicle, on_delete=models.PROTECT, related_name="bookings", verbose_name="véhicule"
+    )
+    row = models.ForeignKey(
+        Row, on_delete=models.PROTECT, related_name="bookings", verbose_name="rangée"
+    )
+    position = models.PositiveSmallIntegerField(
+        "position",
+        validators=[MinValueValidator(1), MaxValueValidator(50)],
+        help_text="1 = le plus proche de l'allée.",
+    )
+    start_date = models.DateField("date d'entrée")
+    periods = models.PositiveSmallIntegerField(
+        "nombre de périodes", validators=[MinValueValidator(1), MaxValueValidator(100)]
+    )
+    end_date = models.DateField("date de fin", editable=False)
+    status = models.CharField(
+        "statut", max_length=10, choices=BookingStatus.choices, default=BookingStatus.RESERVED
+    )
+    actual_check_in = models.DateField("entrée effective", null=True, blank=True)
+    actual_check_out = models.DateField("sortie effective", null=True, blank=True)
+    price_per_period = models.DecimalField(
+        "prix par période (HTVA)", max_digits=10, decimal_places=2, editable=False
+    )
+    vat_regime = models.CharField(
+        "régime de TVA", max_length=10, choices=VatRegime.choices, editable=False
+    )
+    vat_rate = models.DecimalField(
+        "taux de TVA (%)", max_digits=5, decimal_places=2, editable=False
+    )
+    notes = models.TextField("notes", blank=True)
+    created_at = models.DateTimeField("créée le", auto_now_add=True)
+    updated_at = models.DateTimeField("modifiée le", auto_now=True)
+
+    objects = BookingQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["start_date", "row__display_order", "position"]
+        verbose_name = "réservation"
+        verbose_name_plural = "réservations"
+
+    def __str__(self):
+        return f"{self.vehicle.plate} – {self.row.code} pos. {self.position}"
+
+    def save(self, *args, **kwargs):
+        app_settings = AppSettings.load()
+        if self.price_per_period is None:
+            self.copy_prices_from(app_settings)
+        self.end_date = compute_end_date(self.start_date, self.periods, app_settings.period_days)
+        super().save(*args, **kwargs)
+
+    def copy_prices_from(self, app_settings: AppSettings) -> None:
+        """Snapshot of the current price and VAT settings (done once, at creation)."""
+        if app_settings.price_per_period is None:
+            raise ValidationError(
+                "Le prix par période n'est pas défini : renseignez-le dans les Paramètres."
+            )
+        self.price_per_period = app_settings.price_per_period
+        self.vat_regime = app_settings.vat_regime
+        self.vat_rate = app_settings.vat_rate
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in ACTIVE_STATUSES
+
+    @property
+    def totals(self) -> Totals:
+        """Price of the whole booking: HT, TVA and TTC."""
+        return compute_totals(self.periods, self.price_per_period, self.vat_regime, self.vat_rate)
+
+    @property
+    def total_excl_vat(self):
+        return self.totals.excl_vat
