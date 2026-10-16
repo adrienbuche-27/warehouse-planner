@@ -27,6 +27,20 @@
   {% csrf_token %}
   {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
 
+  {% if overflow_bookings %}
+  <article class="warning-box" role="alert">
+    <p><strong>Ces réservations ne tiendraient plus dans leur rangée avec les nouvelles valeurs :</strong></p>
+    <ul>
+      {% for booking in overflow_bookings %}
+        <li><a href="{% url 'storage:booking_detail' booking.pk %}">{{ booking.vehicle.plate }}</a> –
+          {{ booking.row.code }} pos. {{ booking.position }}, du {{ booking.start_date|date }} au {{ booking.end_date|date }}</li>
+      {% endfor %}
+    </ul>
+    <p>Rien n'a encore été enregistré. Aucune réservation ne sera déplacée ni supprimée automatiquement.</p>
+    <button type="submit" name="confirm_overflow" value="1" class="danger">Enregistrer quand même</button>
+  </article>
+  {% endif %}
+
   {% for title, anchor, fields in form.groups %}
   <article id="{{ anchor }}">
     <header><h2>{{ title }}</h2></header>
@@ -69,7 +83,7 @@
 
   {% if rows %}
   <div class="overflow-auto">
-    <table class="striped rows-table">
+    <table class="rows-table">
       <thead>
         <tr>
           <th scope="col">Code</th>
@@ -81,9 +95,8 @@
           <th scope="col"><span class="visually-hidden">Actions</span></th>
         </tr>
       </thead>
-      <tbody>
-        {% for row in rows %}{% include "storage/_row_display.html" %}{% endfor %}
-      </tbody>
+      {# One <tbody> per row, so an edited row can show a warning line below it. #}
+      {% for row in rows %}{% include "storage/_row_display.html" %}{% endfor %}
     </table>
   </div>
   {% else %}

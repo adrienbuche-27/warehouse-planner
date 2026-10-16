@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 from core.forms import AppSettingsForm, BulkRowCreateForm
 from core.models import AppSettings
 from core.validators import REMINDER_PLACEHOLDERS
+from storage import services
 from storage.models import Row
 
 logger = logging.getLogger(__name__)
@@ -24,13 +25,26 @@ def dashboard(request):
 def settings_page(request):
     """Paramètres: the AppSettings form, the rows table and the test email button."""
     app_settings = AppSettings.load()
+    overflow_bookings = []
     if request.method == "POST":
         form = AppSettingsForm(request.POST, request.FILES, instance=app_settings)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Paramètres enregistrés.")
-            return redirect("core:settings")
-        messages.error(request, "Les paramètres n'ont pas été enregistrés : corrigez les erreurs.")
+            overflow = _bookings_overflowing_new_settings(form.cleaned_data)
+            if overflow and not request.POST.get("confirm_overflow"):
+                messages.warning(
+                    request,
+                    "Avec ces valeurs, des réservations ne tiendraient plus dans leur rangée. "
+                    "Vérifiez la liste ci-dessous.",
+                )
+                overflow_bookings = overflow
+            else:
+                form.save()
+                messages.success(request, "Paramètres enregistrés.")
+                return redirect("core:settings")
+        else:
+            messages.error(
+                request, "Les paramètres n'ont pas été enregistrés : corrigez les erreurs."
+            )
     else:
         form = AppSettingsForm(instance=app_settings)
 
@@ -43,8 +57,20 @@ def settings_page(request):
         "rows": rows,
         "bulk_form": BulkRowCreateForm(),
         "placeholders": REMINDER_PLACEHOLDERS,
+        "overflow_bookings": overflow_bookings,
     }
     return render(request, "core/settings.html", context)
+
+
+def _bookings_overflowing_new_settings(cleaned_data) -> list:
+    """Section 6.5: shorter default rows or a bigger gap may leave current or future bookings
+    without enough room. They are listed for confirmation; nothing is moved or deleted."""
+    saved = AppSettings.load()  # values currently in the database
+    new_length = cleaned_data["default_row_length_m"]
+    new_gap = cleaned_data["vehicle_gap_m"]
+    if new_length >= saved.default_row_length_m and new_gap <= saved.vehicle_gap_m:
+        return []
+    return services.bookings_not_fitting(default_row_length=new_length, gap=new_gap)
 
 
 @require_POST
