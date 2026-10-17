@@ -10,7 +10,7 @@
 
 {% if price_missing and not booking %}
   <article class="notice">
-    Le prix par période n'est pas encore défini : renseignez-le dans les
+    Le prix par tranche n'est pas encore défini : renseignez-le dans les
     <a href="{% url 'core:settings' %}#tarifs-tva">Paramètres</a> avant de créer une réservation.
   </article>
 {% endif %}
@@ -23,16 +23,10 @@
   <article>
     <header><h2>Client et véhicule</h2></header>
     <div class="field-grid">
-      <div>
-        <label for="id_client">{{ form.client.label }}</label>
-        <select name="client" id="id_client" {% if form.client.errors %}aria-invalid="true"{% endif %}
-                hx-get="{% url 'storage:booking_vehicles' %}" hx-target="#vehicle-field" hx-trigger="change">
-          <option value="">— Choisir un client —</option>
-          {% for client in form.fields.client.queryset %}
-            <option value="{{ client.pk }}" {% if client.pk|stringformat:"s" == form.client.value|stringformat:"s" %}selected{% endif %}>{{ client.display_name }}</option>
-          {% endfor %}
-        </select>
-        {% for error in form.client.errors %}<small class="error">{{ error }}</small>{% endfor %}
+      <div id="client-field">
+        {% with clients=form.fields.client.queryset selected=form.client.value|stringformat:"s" errors=form.client.errors %}
+          {% include "storage/_client_select.html" %}
+        {% endwith %}
       </div>
       <div>
         <div id="vehicle-field">
@@ -43,6 +37,7 @@
         {% for error in form.vehicle.errors %}<small class="error">{{ error }}</small>{% endfor %}
       </div>
     </div>
+    <div id="quick-client"></div>
     <div id="quick-vehicle"></div>
   </article>
 
@@ -50,8 +45,9 @@
     <header><h2>Dates</h2></header>
     <div class="field-grid"
          hx-get="{% url 'storage:booking_summary' %}" hx-target="#summary"
-         hx-trigger="load, change from:#id_start_date, input delay:300ms from:#id_periods"
-         hx-include="#id_start_date, #id_periods, #booking-id">
+         hx-trigger="load, change from:#id_start_date, input delay:300ms from:#id_periods,
+                     change[target.id=='id_vehicle'] from:body, vehicle-selected from:body"
+         hx-include="#id_start_date, #id_periods, #id_vehicle, #booking-id">
       <div>{% include "includes/field.html" with field=form.start_date %}</div>
       <div>{% include "includes/field.html" with field=form.periods %}</div>
     </div>
@@ -81,6 +77,13 @@
         {% for error in form.confirm_conflicts.errors %}<small class="error">{{ error }}</small>{% endfor %}
       </div>
     {% endif %}
+
+    <h3 class="map-title">Plan de l'entrepôt sur la période</h3>
+    <div id="warehouse-map" class="booking-map"
+         hx-get="{% url 'storage:booking_map' %}"
+         hx-trigger="load, change from:#id_start_date, input changed delay:500ms from:#id_periods,
+                     change[target.id=='id_vehicle'] from:body, vehicle-selected from:body"
+         hx-include="#id_vehicle, #id_start_date, #id_periods, #id_row, #booking-id"></div>
   </article>
 
   <article>{% include "includes/field.html" with field=form.notes %}</article>
@@ -90,4 +93,14 @@
     <a href="{% if booking %}{% url 'storage:booking_detail' booking.pk %}{% else %}{% url 'storage:booking_list' %}{% endif %}" role="button" class="secondary outline">Annuler</a>
   </div>
 </form>
+
+<script>
+  // Warehouse map: clicking a row fills "Rangée" and "Position" with the best place in it.
+  function pickMapRow(button) {
+    document.getElementById("id_row").value = button.dataset.row;
+    document.getElementById("id_position").value = button.dataset.position;
+    document.querySelectorAll(".map-row.selected").forEach((row) => row.classList.remove("selected"));
+    button.closest(".map-row").classList.add("selected");
+  }
+</script>
 {% endblock %}

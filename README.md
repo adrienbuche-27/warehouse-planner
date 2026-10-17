@@ -116,7 +116,10 @@ or templates, so it can be unit-tested.
   when they are created, so changing a setting never alters existing ones.
 - **Rows** are created on the Paramètres page ("Créer les rangées" numbers them after the
   existing ones: R01, R02, …) and edited inline in the table.
-- **Clients and vehicles** can be archived instead of deleted. Archived ones are hidden from
+- **Clients and vehicles**: a client's address and phone are required (invoices need the
+  address). Both share one form template, `templates/clients/_client_fields.html`, also used by
+  "+ Nouveau client" in the booking form: a client created there is selected and the booking
+  goes straight on to "+ Nouveau véhicule". They can be archived instead of deleted. Archived ones are hidden from
   lists (tick "Inclure les archivés" to see them); a vehicle whose client is archived counts as
   archived too. Deleting is refused as soon as bookings or invoices are linked: those links are
   declared with `on_delete=PROTECT`, and `core.services.protected_objects()` reports them.
@@ -127,13 +130,34 @@ or templates, so it can be unit-tested.
     boxed in (closest to the aisle first, put back in reverse order);
   - `suggest_placements()` ranks rows and positions: fewest blocking situations, then the
     tightest fit, then the row order.
-  The booking keeps the price and VAT of the day it was created. "Prolonger" keeps that price.
+  Pricing is per length band (`core/pricing.py`): price per period = bands × price per band,
+  a started band counting in full (7,40 m with 2 m bands = 4 bands). The booking keeps the band
+  size, band price and VAT of the day it was created. The number of bands follows the vehicle
+  length until the booking is invoiced: `storage.services.refresh_price()` runs when a vehicle
+  length or a booking's vehicle is changed, and before the first invoice of a booking. Once
+  invoiced, the price stays (correct with a credit note and a new invoice). "Prolonger" keeps
+  the price. Bookings made before pricing per band keep their flat price.
 - **Planning** (`/planning/`, logic in `storage/planning.py`) shows 13 windows of 2 weeks from
   the Monday of the current week. Each cell is the peak occupancy of the row in that window
   (green below 70 %, orange 70–95 %, red above 95 %) with ⚠ when a vehicle of the row is boxed
   in when entering or leaving. Click a cell for its vehicles, move plans and "Nouvelle
   réservation ici". "Espace libre min." keeps rows with that much free space in at least one
   window and dims the other windows.
+- **Warehouse map** (`storage/warehouse_map.py`): one strip per row, aisle on the left, each
+  vehicle sized to its length by position (vehicles using a position one after another are
+  stacked; free metres at the busiest moment). It is used by three screens, kept separate:
+  - **"Plan de l'entrepôt"** (Planning › Plan de l'entrepôt, `storage:planning_map`), space
+    management: one day or "du … au …" (one year at most). Vehicles boxed in when entering or
+    leaving during those dates get ⚠ and each row lists the move plans. Click a vehicle for its
+    booking, a row's free space to book there. "Imprimer" prints the map (CSS `@media print`).
+  - **"Trouver un emplacement"** (Réservations › Trouver un emplacement,
+    `storage:booking_find`), placing one van before booking it: start date, periods, and a
+    length or a registered vehicle. It lists the 5 best places ("Réserver ici"), then the map
+    with ✓ / ★ / ⚠ / ✗ per row. Both open the booking form prefilled
+    (`?rangee=&position=&debut=&periodes=&vehicule=`). A van known only by its length is an
+    unsaved `Vehicle` (`warehouse_map.planned_vehicle`).
+  - **The booking form** shows the map for the stay being booked; clicking a row fills
+    "Rangée" and "Position" with the best place in it (the fit check still applies on save).
 - **Invoices** (`invoicing/services.py`) follow CLAUDE.md section 8, to be validated by the
   accountant before go-live:
   - "Créer la facture" on a booking makes a draft for its periods not invoiced yet (after
@@ -142,7 +166,10 @@ or templates, so it can be unit-tested.
   - "Émettre" assigns the number (`AAAA-NNNN`, gap-free per year), copies the client and company
     details, computes the totals (VAT per line), the structured communication and stores the PDF
     in `media/invoices/AAAA/`. Issuing is refused while the company name, address, VAT number
-    or IBAN are missing in Paramètres. If anything fails, nothing is saved and no number is used.
+    or IBAN are missing in Paramètres, or while the client's name, address or (for a business)
+    VAT number are missing (`missing_client_details()`; the invoice page links to the client
+    form, which comes back to the invoice). If anything fails, nothing is saved and no number
+    is used.
   - Issued invoices and credit notes are read-only and can never be deleted (model, screens and
     admin). Only the payment fields can change: "Marquer payée" / "Annuler le paiement".
   - "Créer une note de crédit" copies all the lines of the invoice; edit them before issuing to

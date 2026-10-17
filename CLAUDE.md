@@ -89,7 +89,8 @@ Only one row may exist. Enforce this in `save()` and expose it through `AppSetti
 | `default_row_length_m` | Decimal | 16.00 | Used when a row has no override |
 | `vehicle_gap_m` | Decimal | 0.50 | Safety gap between two vehicles in a row |
 | `period_days` | Int | 14 | Length of a billing period. Keep at 14; exposed for clarity, not meant to change often |
-| `price_per_period` | Decimal | — | Price **excluding VAT** for one period |
+| `band_length_m` | Decimal | 2.00 | Size of a length band. The price depends on the vehicle length, per band |
+| `price_per_band` | Decimal | — | Price **excluding VAT** of one band for one period |
 | `vat_regime` | Choice | `standard` | `standard` (VAT applies) or `franchise` (small-business exemption) |
 | `vat_rate` | Decimal | 21.00 | Percentage, used when `vat_regime = standard` |
 | `reminder_days_before_end` | Int | 14 | |
@@ -118,9 +119,9 @@ Only one row may exist. Enforce this in `save()` and expose it through `AppSetti
 | `first_name`, `last_name` | Char | Required for private |
 | `company_name` | Char | Required for business |
 | `vat_number` | Char | Required for business; validated format `BE` + 10 digits (accept other EU prefixes too) |
-| `street`, `postal_code`, `city`, `country` | Char | Country default "Belgique" |
+| `street`, `postal_code`, `city`, `country` | Char | Required (printed on invoices). Country default "Belgique" |
 | `email` | Email | Required (reminders) |
-| `phone` | Char | |
+| `phone` | Char | Required |
 | `notes` | Text | |
 | `created_at`, `updated_at` | DateTime | |
 
@@ -165,7 +166,9 @@ Provide a "Créer N rangées" action on the settings page to bulk-create rows R0
 | `end_date` | Date | **Computed and stored**: `start_date + periods × period_days − 1 day` (inclusive) |
 | `status` | Choice | `reserved` (réservée), `stored` (en stock), `ended` (terminée), `cancelled` (annulée) |
 | `actual_check_in`, `actual_check_out` | Date, nullable | Set when status changes |
-| `price_per_period` | Decimal | **Snapshot** of the setting at creation |
+| `band_length_m`, `price_per_band` | Decimal | **Snapshot** of the settings at creation |
+| `billed_length_m`, `band_count` | | Vehicle length used and number of bands: `ceil(length / band_length_m)`, a started band counts in full, no minimum |
+| `price_per_period` | Decimal | **Computed and stored**: `band_count × price_per_band` |
 | `vat_regime`, `vat_rate` | | **Snapshot** at creation |
 | `notes` | Text | |
 | `created_at`, `updated_at` | | |
@@ -245,7 +248,8 @@ Guiding principle: vehicles leaving **later** should sit **deeper** (higher posi
 
 ### 6.4 Pricing
 
-- At booking creation: copy `price_per_period`, `vat_regime`, `vat_rate` from `AppSettings` into the booking.
+- At booking creation: copy `band_length_m`, `price_per_band`, `vat_regime`, `vat_rate` from `AppSettings` into the booking, and compute the bands from the vehicle length (7,40 m with 2 m bands = 4 bands).
+- The band count follows the vehicle length while the booking is not invoiced: correcting a vehicle's length (or the booking's vehicle) recalculates its uninvoiced bookings, with a message. Invoiced bookings (a draft counts) keep their price; the message suggests recreating the draft, or a credit note and a new invoice. The price is also recalculated when the first invoice of a booking is created.
 - Changing settings later never alters existing bookings or invoices. Show a notice on the settings page saying so.
 - Rounding: compute per line, round VAT to 2 decimals with `ROUND_HALF_UP`.
 
@@ -275,11 +279,13 @@ Navigation bar: **Tableau de bord · Planning · Réservations · Clients · Vé
 - A warning icon appears in a cell if any vehicle in that row has a blocked entry or exit within that window.
 - Clicking a cell opens a panel (HTMX) listing vehicles in that row for that window, by position: plate, client, dates, status, boxed-in warnings and move plans. A "Nouvelle réservation ici" button prefills row and start date.
 - Filter: show only rows with free space ≥ X m (useful when placing an 8 m vehicle).
+- **Plan de l'entrepôt** (linked from the Planning page), for space management: top-down map for one day (today by default) or a range of dates ("du … au …", one year at most). Each active row is a horizontal strip in display order, aisle on the left, vehicles drawn by position and sized to their length, free metres at the end (at the busiest moment for a range). Vehicles boxed in when entering or leaving during the dates are marked ⚠, with the move plans listed under their row. Clicking a vehicle opens its booking; clicking a row's free space starts a booking there (row and date prefilled). "Imprimer" gives a clean printed version.
 
 ### 7.3 Réservations
 
 - List with filters: status, row, client, date range. Search by plate or client name.
-- **Booking form**: select client, then vehicle (HTMX dependent dropdown; "+ Nouveau véhicule" inline), start date, number of periods. The end date and price (HT, TVA, TTC) are computed live. "Proposer un emplacement" shows the ranked suggestions from 6.3 (top 5); picking one fills row and position. Manual row/position entry is allowed, but `check_fit` must pass. Blocking conflicts show a warning with the move plan and require ticking "Je confirme".
+- **Booking form**: select client, then vehicle (HTMX dependent dropdown; "+ Nouveau client" and "+ Nouveau véhicule" open the full forms inline: a new client is selected and goes straight on to the new-vehicle form), start date, number of periods. The end date and price (HT, TVA, TTC) are computed live. "Proposer un emplacement" shows the ranked suggestions from 6.3 (top 5); picking one fills row and position. Once vehicle, start date and periods are set, the form also shows the warehouse map for the stay: every vehicle present at some point (those present only part of the time drawn lighter, vehicles using a position one after another stacked), free metres at the busiest moment, and per row ✓ fits, ★ among the top 5 suggestions, ⚠ fits with vehicles to move (move plan shown when picked), ✗ not enough room. Clicking a row that fits fills row and its best position. Manual row/position entry is allowed, but `check_fit` must pass. Blocking conflicts show a warning with the move plan and require ticking "Je confirme".
+- **Trouver un emplacement** (Réservations page), for placing one van before booking it, kept separate from the Plan de l'entrepôt: start date, number of periods, and a length (van not registered yet) or a registered vehicle. Shows the 5 best places from 6.3 with "Réserver ici", then the warehouse map for the stay with ✓ / ★ / ⚠ / ✗ per row (move plan in a collapsible line). Both open the booking form with row, best position, start date, periods and the vehicle prefilled.
 - Booking detail: all info, status actions (Marquer en stock / Marquer sortie / Annuler / Prolonger), linked invoices, reminder history, blockers.
 
 ### 7.4 Clients and Véhicules
@@ -290,7 +296,7 @@ Navigation bar: **Tableau de bord · Planning · Réservations · Clients · Vé
 ### 7.5 Factures
 
 - List with filters: status, client, period, overdue only. Totals for the filtered selection.
-- From a booking: "Créer la facture" makes a draft with one line ("Stockage camping-car [plaque] – du [début] au [fin] – N période(s) de 14 jours"). Drafts are editable.
+- From a booking: "Créer la facture" makes a draft with one line ("Stockage camping-car AB-123-CD – 7,40 m, soit 4 tranches de 2 m × 12,00 € – du 01/03/2027 au 11/04/2027 – 3 périodes de 14 jours"; quantity = periods, unit price = bands × price per band). Drafts are editable.
 - "Émettre" assigns the number, snapshots data, generates and stores the PDF. After that the invoice is **read-only**.
 - "Marquer payée" records date, method (virement, espèces, autre) and note. "Annuler le paiement" is allowed (it is a tracking field, not accounting).
 - "Créer une note de crédit" (from an issued invoice).

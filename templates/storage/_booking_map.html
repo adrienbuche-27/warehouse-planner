@@ -1,0 +1,18 @@
+{% load formatting %}
+{# Warehouse map in the booking form, reloaded when the vehicle or the dates change. #}
+{% if missing %}
+  <p class="muted"><small>Choisissez le véhicule, la date d'entrée et le nombre de périodes pour voir le plan de l'entrepôt.</small></p>
+{% else %}
+  {% if already_booked %}
+    <p class="error">Ce véhicule est déjà réservé sur cette période : il ne peut être placé nulle part.</p>
+  {% endif %}
+  <p class="map-legend">
+    Du {{ map.start|date:"d/m/Y" }} au {{ map.end|date:"d/m/Y" }} · {{ map.vehicle.plate }} ({{ map.vehicle.length_m|metres }}).
+    Cliquez sur une rangée pour la choisir : la meilleure position y est proposée.<br>
+    <span class="ok">✓</span> le véhicule y tient · <span class="star">★</span> meilleures propositions ·
+    <span class="warn">⚠</span> des véhicules devront être déplacés · <span class="muted">✗</span> pas assez de place ·
+    <span class="map-vehicle-sample partial"></span> présent seulement une partie de la période ·
+    place libre au moment le plus chargé
+  </p>
+  {% include "storage/_warehouse_map.html" with mode="pick" %}
+{% endif %}

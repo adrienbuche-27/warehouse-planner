@@ -41,12 +41,16 @@
   <article>
     <header><h2>Prix</h2></header>
     <dl class="details">
+      {% if booking.priced_per_band %}
+        <dt>Tranches</dt><dd>{{ booking.band_count }} tranche{{ booking.band_count|pluralize }} de {{ booking.band_length_m|metres_short }} m <small class="muted">(longueur {{ booking.billed_length_m|metres }})</small></dd>
+        <dt>Prix par tranche</dt><dd>{{ booking.price_per_band|money }} HTVA</dd>
+      {% endif %}
       <dt>Prix par période</dt><dd>{{ booking.price_per_period|money }} HTVA</dd>
       <dt>Total HTVA</dt><dd>{{ booking.totals.excl_vat|money }}</dd>
       <dt>TVA</dt><dd>{% if booking.vat_regime == "franchise" %}franchise (pas de TVA){% else %}{{ booking.vat_rate|floatformat:"-2" }} % · {{ booking.totals.vat|money }}{% endif %}</dd>
       <dt>Total TVAC</dt><dd><strong>{{ booking.totals.incl_vat|money }}</strong></dd>
     </dl>
-    <footer><small class="muted">Prix enregistré à la création de la réservation.</small></footer>
+    <footer><small class="muted">{% if booking.priced_per_band %}Prix par tranche enregistré à la création de la réservation. Le nombre de tranches suit la longueur du véhicule tant que la réservation n'est pas facturée.{% else %}Prix enregistré à la création de la réservation.{% endif %}</small></footer>
   </article>
 </div>
 

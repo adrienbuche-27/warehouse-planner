@@ -7,7 +7,7 @@ from django.db import models
 
 from clients.models import Vehicle
 from core.models import AppSettings, VatRegime
-from core.pricing import Totals, compute_totals
+from core.pricing import Totals, band_count, compute_totals
 
 
 class Row(models.Model):
@@ -93,8 +93,13 @@ class BookingQuerySet(models.QuerySet):
 class Booking(models.Model):
     """A vehicle stored at a position in a row for a number of 2-week periods.
 
-    Position 1 is closest to the aisle. The price and VAT are copied from the settings when
-    the booking is created, so later changes to the settings never alter it.
+    Position 1 is closest to the aisle. The band size, price per band and VAT are copied from
+    the settings when the booking is created, so later changes to the settings never alter it.
+    The number of bands follows the vehicle length: `storage.services.refresh_price()`
+    recalculates it while the booking is not invoiced yet.
+
+    Bookings created before pricing per band have no band fields: they keep their flat
+    `price_per_period`.
     """
 
     vehicle = models.ForeignKey(
@@ -118,6 +123,17 @@ class Booking(models.Model):
     )
     actual_check_in = models.DateField("entrée effective", null=True, blank=True)
     actual_check_out = models.DateField("sortie effective", null=True, blank=True)
+    # Price: band_count × price_per_band = price_per_period (all stored, see compute_price).
+    band_length_m = models.DecimalField(
+        "taille d'une tranche (m)", max_digits=5, decimal_places=2, null=True, editable=False
+    )
+    price_per_band = models.DecimalField(
+        "prix par tranche (HTVA)", max_digits=10, decimal_places=2, null=True, editable=False
+    )
+    billed_length_m = models.DecimalField(
+        "longueur facturée (m)", max_digits=5, decimal_places=2, null=True, editable=False
+    )
+    band_count = models.PositiveSmallIntegerField("nombre de tranches", null=True, editable=False)
     price_per_period = models.DecimalField(
         "prix par période (HTVA)", max_digits=10, decimal_places=2, editable=False
     )
@@ -149,14 +165,32 @@ class Booking(models.Model):
         super().save(*args, **kwargs)
 
     def copy_prices_from(self, app_settings: AppSettings) -> None:
-        """Snapshot of the current price and VAT settings (done once, at creation)."""
-        if app_settings.price_per_period is None:
+        """Snapshot of the current band size, price per band and VAT (done once, at creation)."""
+        if app_settings.price_per_band is None:
             raise ValidationError(
-                "Le prix par période n'est pas défini : renseignez-le dans les Paramètres."
+                "Le prix par tranche n'est pas défini : renseignez-le dans les Paramètres."
             )
-        self.price_per_period = app_settings.price_per_period
+        self.band_length_m = app_settings.band_length_m
+        self.price_per_band = app_settings.price_per_band
         self.vat_regime = app_settings.vat_regime
         self.vat_rate = app_settings.vat_rate
+        self.compute_price()
+
+    @property
+    def priced_per_band(self) -> bool:
+        """False for bookings created before pricing per band (flat price per period)."""
+        return self.band_length_m is not None and self.price_per_band is not None
+
+    def compute_price(self) -> None:
+        """Bands of the vehicle's current length and the resulting price per period.
+
+        Only sets the fields; `storage.services.refresh_price()` decides when to save them.
+        """
+        if not self.priced_per_band:
+            return
+        self.billed_length_m = self.vehicle.length_m
+        self.band_count = band_count(self.billed_length_m, self.band_length_m)
+        self.price_per_period = self.band_count * self.price_per_band
 
     @property
     def is_active(self) -> bool:

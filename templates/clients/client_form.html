@@ -10,53 +10,16 @@
 
 <form method="post" class="client-form" novalidate>
   {% csrf_token %}
+  {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
   {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
 
   <article>
-    <fieldset>
-      <legend>{{ form.client_type.label }}</legend>
-      {% for radio in form.client_type %}
-        <label>{{ radio.tag }} {{ radio.choice_label }}</label>
-      {% endfor %}
-    </fieldset>
-
-    {# The company fields are only shown for a business (see .client-form in app.css). #}
-    <div class="field-grid business-only">
-      <div>{% include "includes/field.html" with field=form.company_name %}</div>
-      <div>{% include "includes/field.html" with field=form.vat_number %}</div>
-    </div>
-    <p class="business-only"><small>Personne de contact (facultatif) :</small></p>
-    <div class="field-grid">
-      <div>{% include "includes/field.html" with field=form.first_name %}</div>
-      <div>{% include "includes/field.html" with field=form.last_name %}</div>
-    </div>
-  </article>
-
-  <article>
-    <header><h2>Contact</h2></header>
-    <div class="field-grid">
-      <div>{% include "includes/field.html" with field=form.email %}</div>
-      <div>{% include "includes/field.html" with field=form.phone %}</div>
-    </div>
-  </article>
-
-  <article>
-    <header><h2>Adresse</h2></header>
-    <div class="field-grid">
-      <div class="field-wide">{% include "includes/field.html" with field=form.street %}</div>
-      <div>{% include "includes/field.html" with field=form.postal_code %}</div>
-      <div>{% include "includes/field.html" with field=form.city %}</div>
-      <div>{% include "includes/field.html" with field=form.country %}</div>
-    </div>
-  </article>
-
-  <article>
-    {% include "includes/field.html" with field=form.notes %}
+    {% include "clients/_client_fields.html" %}
   </article>
 
   <div class="form-actions">
     <button type="submit">Enregistrer</button>
-    <a href="{% if client %}{% url 'clients:client_detail' client.pk %}{% else %}{% url 'clients:client_list' %}{% endif %}" role="button" class="secondary outline">Annuler</a>
+    <a href="{% if next_url %}{{ next_url }}{% elif client %}{% url 'clients:client_detail' client.pk %}{% else %}{% url 'clients:client_list' %}{% endif %}" role="button" class="secondary outline">Annuler</a>
   </div>
 </form>
 {% endblock %}

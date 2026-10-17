@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block title %}Trouver un emplacement{% endblock %}
+
+{% block content %}
+<p><a href="{% url 'storage:booking_list' %}">← Réservations</a></p>
+<hgroup>
+  <h1>Trouver un emplacement</h1>
+  <p>Où placer un véhicule pour une réservation : indiquez la date d'entrée, la durée et le véhicule (ou seulement sa longueur s'il n'est pas encore enregistré).</p>
+</hgroup>
+
+<form method="get">
+  <article>
+    <div class="field-grid">
+      <div>
+        <label for="find-date">Date d'entrée</label>
+        <input type="date" id="find-date" name="date" value="{{ day|date:'Y-m-d' }}" required>
+      </div>
+      <div>
+        <label for="find-periods">Nombre de périodes</label>
+        <input type="number" id="find-periods" name="periodes" min="1" max="100" value="{{ periods|default_if_none:'' }}" required
+               {% if errors and not periods %}aria-invalid="true"{% endif %}>
+      </div>
+      <div>
+        <label for="find-length">Longueur du véhicule (m)</label>
+        <input type="text" id="find-length" name="longueur" inputmode="decimal" value="{{ raw_length }}" placeholder="ex. 7,40"
+               {% if errors and not length and not vehicle %}aria-invalid="true"{% endif %}>
+        <small>Pour un véhicule pas encore enregistré.</small>
+      </div>
+      <div>
+        <label for="find-vehicle">… ou un véhicule enregistré</label>
+        <select id="find-vehicle" name="vehicule">
+          <option value="">—</option>
+          {% for v in vehicles %}
+            <option value="{{ v.pk }}" {% if v.pk == vehicle.pk %}selected{% endif %}>{{ v.plate }} – {{ v.client.display_name }} ({{ v.length_m|metres }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    {% for error in errors %}<p class="error">{{ error }}</p>{% endfor %}
+    <div class="form-actions">
+      <button type="submit">Chercher</button>
+      <a href="{% url 'storage:booking_find' %}" role="button" class="secondary outline">Effacer</a>
+    </div>
+  </article>
+</form>
+
+{% if map %}
+  <h2 class="map-title">Meilleurs emplacements du {{ day|date:"d/m/Y" }} au {{ end|date:"d/m/Y" }}
+    pour {% if vehicle %}{{ vehicle.plate }} ({{ vehicle.length_m|metres }}){% else %}un véhicule de {{ length|metres }}{% endif %}</h2>
+  {% if already_booked %}
+    <p class="error">{{ vehicle.plate }} est déjà réservé sur cette période : il ne peut être placé nulle part.</p>
+  {% elif not best %}
+    <p class="error">Aucun emplacement libre pour ce véhicule sur cette période.</p>
+  {% else %}
+  <div class="overflow-auto">
+    <table class="suggestions">
+      <thead>
+        <tr>
+          <th scope="col">Rangée</th>
+          <th scope="col">Position</th>
+          <th scope="col">Occupation au plus chargé</th>
+          <th scope="col">Blocages</th>
+          <th scope="col"><span class="visually-hidden">Réserver</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in best %}
+        <tr>
+          <th scope="row">{{ s.row.code }}</th>
+          <td>{{ s.position }}</td>
+          <td>{{ s.fit.peak_occupancy_m|metres }} / {{ s.fit.row_length_m|metres }} <small class="muted">({{ s.wasted_m|metres }} libres)</small></td>
+          <td>
+            {% if s.conflict_count %}
+              <span class="warn">⚠ {{ s.conflict_count }}</span>
+              <small>{% if s.blocked_by %}gêné par {% for b in s.blocked_by %}{{ b.vehicle.plate }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% if s.blocked_by and s.blocks %} · {% endif %}{% if s.blocks %}gêne {% for b in s.blocks %}{{ b.vehicle.plate }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</small>
+            {% else %}
+              <span class="ok">aucun</span>
+            {% endif %}
+          </td>
+          <td class="actions">
+            <a role="button" class="small" href="{% url 'storage:booking_create' %}?rangee={{ s.row.pk }}&amp;position={{ s.position }}&amp;debut={{ day|date:'Y-m-d' }}&amp;periodes={{ periods }}{% if vehicle %}&amp;vehicule={{ vehicle.pk }}{% endif %}">Réserver ici</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <h2 class="map-title">Plan de l'entrepôt sur la période</h2>
+  <p class="map-legend">
+    <span class="ok">✓</span> le véhicule y tient · <span class="star">★</span> meilleures propositions ·
+    <span class="warn">⚠</span> des véhicules devront être déplacés (détail sous la rangée) · <span class="muted">✗</span> pas assez de place ·
+    <span class="map-vehicle-sample partial"></span> présent seulement une partie de la période · place libre au moment le plus chargé.
+    Cliquez sur une rangée pour ouvrir la réservation avec la rangée, la meilleure position et les dates déjà remplies.
+  </p>
+  {% include "storage/_warehouse_map.html" with mode="link" %}
+{% endif %}
+{% endblock %}

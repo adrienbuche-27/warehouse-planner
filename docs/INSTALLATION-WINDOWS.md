@@ -106,7 +106,9 @@ relise la configuration. Dans l'application : **Paramètres → Envoyer un email
 
 Dans **Paramètres** :
 1. **Société** : dénomination, adresse, TVA, BCE, IBAN… (obligatoires pour émettre des factures).
-2. **Tarifs & TVA** : prix par période.
+2. **Tarifs & TVA** : taille d'une tranche (2 m par défaut) et prix par tranche et par période.
+   Exemple : 12,00 € par tranche de 2 m → un camping-car de 7,40 m (4 tranches) coûte
+   48,00 € HTVA par période.
 3. **Rappels** : emails des administrateurs, texte de l'email aux clients.
 4. **Rangées** : « Créer les rangées ».
 

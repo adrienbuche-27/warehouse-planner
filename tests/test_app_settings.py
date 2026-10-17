@@ -21,7 +21,7 @@ def valid_settings_data(**overrides):
     values = model_to_dict(AppSettings.load(), fields=AppSettingsForm._meta.fields)
     data = {name: "" if value is None else value for name, value in values.items()}
     data.pop("company_logo")
-    data["price_per_period"] = "45.00"
+    data["price_per_band"] = "12.00"
     data.update(overrides)
     return data
 
@@ -34,7 +34,8 @@ def test_load_creates_settings_with_defaults():
     assert app_settings.default_row_length_m == Decimal("16.00")
     assert app_settings.vehicle_gap_m == Decimal("0.50")
     assert app_settings.period_days == 14
-    assert app_settings.price_per_period is None
+    assert app_settings.band_length_m == Decimal("2.00")
+    assert app_settings.price_per_band is None
     assert app_settings.vat_regime == "standard"
     assert app_settings.vat_rate == Decimal("21.00")
     assert app_settings.reminder_days_before_end == 14
@@ -44,9 +45,9 @@ def test_load_creates_settings_with_defaults():
 
 def test_only_one_settings_row_can_exist():
     AppSettings.load()
-    AppSettings(price_per_period=Decimal("10")).save()
+    AppSettings(price_per_band=Decimal("10")).save()
     assert AppSettings.objects.count() == 1
-    assert AppSettings.load().price_per_period == Decimal("10")
+    assert AppSettings.load().price_per_band == Decimal("10")
 
 
 def test_settings_cannot_be_deleted():
@@ -121,15 +122,15 @@ def test_settings_can_be_saved(admin_client):
     app_settings = AppSettings.load()
     assert app_settings.default_row_length_m == Decimal("15.50")
     assert app_settings.vehicle_gap_m == Decimal("0.60")
-    assert app_settings.price_per_period == Decimal("45.00")
+    assert app_settings.price_per_band == Decimal("12.00")
     assert app_settings.company_vat_number == "BE0123456789"
 
 
 def test_price_is_required_on_the_form(admin_client):
-    response = admin_client.post(reverse("core:settings"), valid_settings_data(price_per_period=""))
+    response = admin_client.post(reverse("core:settings"), valid_settings_data(price_per_band=""))
     assert response.status_code == 200
     assert "n&#x27;ont pas été enregistrés" in response.content.decode()
-    assert AppSettings.load().price_per_period is None
+    assert AppSettings.load().price_per_band is None
 
 
 def test_invalid_values_are_reported(admin_client):

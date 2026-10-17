@@ -1,15 +1,19 @@
+{# "+ Nouveau véhicule" inside the booking form. Enter does not submit the booking form here. #}
 {% if no_client %}
   <p class="error">Choisissez d'abord le client du nouveau véhicule.</p>
 {% else %}
-<fieldset class="quick-vehicle">
+<fieldset class="quick-form"
+          onkeydown="if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') event.preventDefault()">
   <legend>Nouveau véhicule pour {{ client.display_name }}</legend>
+  {% if new_client %}<p class="success" role="status">Client enregistré. Ajoutez maintenant son véhicule.</p>{% endif %}
   <div class="field-grid">
     <div>{% include "includes/field.html" with field=form.plate %}</div>
+    <div>{% include "includes/field.html" with field=form.length_m %}</div>
     <div>{% include "includes/field.html" with field=form.brand %}</div>
     <div>{% include "includes/field.html" with field=form.model %}</div>
-    <div>{% include "includes/field.html" with field=form.length_m %}</div>
     <div>{% include "includes/field.html" with field=form.height_m %}</div>
   </div>
+  {% include "includes/field.html" with field=form.notes %}
   <div class="form-actions">
     <button type="button" hx-post="{% url 'storage:booking_quick_vehicle' %}"
             hx-include="closest fieldset, #id_client" hx-target="#vehicle-field">Ajouter le véhicule</button>

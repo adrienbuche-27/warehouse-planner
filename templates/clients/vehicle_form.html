@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load formatting %}
 
 {% block title %}{% if vehicle %}Modifier {{ vehicle.plate }}{% else %}Nouveau véhicule{% endif %}{% endblock %}
 
@@ -11,6 +12,22 @@
 <form method="post" novalidate>
   {% csrf_token %}
   {% for error in form.non_field_errors %}<p class="error">{{ error }}</p>{% endfor %}
+  {% if overflows %}
+  <article class="warning-box" role="alert">
+    <p><strong>Avec {{ form.cleaned_data.length_m|metres }}, ce véhicule ne tiendrait plus dans sa rangée pour ces réservations :</strong></p>
+    <ul>
+      {% for overflow in overflows %}
+        {% with booking=overflow.booking fit=overflow.fit %}
+        <li><a href="{% url 'storage:booking_detail' booking.pk %}">{{ booking.row.code }} pos. {{ booking.position }}, du {{ booking.start_date|date }} au {{ booking.end_date|date }}</a> :
+          il faudrait {{ fit.peak_occupancy_m|metres }} pour {{ fit.row_length_m|metres }}
+          (avec {% for other in fit.length_conflicts %}{{ other.vehicle.plate }}{% if not forloop.last %}, {% endif %}{% endfor %}).</li>
+        {% endwith %}
+      {% endfor %}
+    </ul>
+    <p>Rien n'a encore été enregistré. Si vous confirmez, déplacez ensuite ces réservations vers une autre rangée (« Modifier » sur la réservation).</p>
+    <button type="submit" name="confirm_overflow" value="1" class="danger">Enregistrer quand même</button>
+  </article>
+  {% endif %}
   <article>
     <div class="field-grid">
       <div class="field-wide">{% include "includes/field.html" with field=form.client %}</div>

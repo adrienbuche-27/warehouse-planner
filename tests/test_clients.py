@@ -13,6 +13,14 @@ from tests.factories import make_business, make_client, make_vehicle
 
 pytestmark = pytest.mark.django_db
 
+# Address and phone, required for every client.
+CONTACT = {
+    "phone": "0470 12 34 56",
+    "street": "Rue Haute 5",
+    "postal_code": "6700",
+    "city": "Arlon",
+}
+
 
 # --- Client model ------------------------------------------------------------
 
@@ -40,12 +48,21 @@ def test_email_is_required():
     assert "email" in exc.value.message_dict
 
 
+def test_address_and_phone_are_required():
+    client = Client(first_name="Jean", last_name="Dupont", email="a@example.be")
+    with pytest.raises(ValidationError) as exc:
+        client.full_clean()
+    assert {"street", "postal_code", "city", "phone"} <= set(exc.value.message_dict)
+    Client(first_name="Jean", last_name="Dupont", email="a@example.be", **CONTACT).full_clean()
+
+
 def test_business_vat_number_is_validated_and_normalised():
     client = Client(
         client_type=ClientType.BUSINESS,
         company_name="Évasion SRL",
         vat_number="BE123",
         email="a@example.be",
+        **CONTACT,
     )
     with pytest.raises(ValidationError) as exc:
         client.full_clean()
@@ -66,12 +83,16 @@ def test_display_name_and_address():
         city="Arlon",
     )
     business = make_business(
-        company_name="Évasion SRL", country="Luxembourg", postal_code="L-1234", city="Luxembourg"
+        company_name="Évasion SRL",
+        street="Rue de Luxembourg 2",
+        country="Luxembourg",
+        postal_code="L-1234",
+        city="Luxembourg",
     )
     assert private.display_name == "Marie Lambert"
     assert business.display_name == "Évasion SRL"
     assert private.address_lines == ["Rue Haute 5", "6700 Arlon"]
-    assert business.address_lines == ["L-1234 Luxembourg", "Luxembourg"]
+    assert business.address_lines == ["Rue de Luxembourg 2", "L-1234 Luxembourg", "Luxembourg"]
     assert Client().country == "Belgique"
 
 
@@ -209,6 +230,7 @@ def test_create_private_client(admin_client):
         "last_name": "Lambert",
         "email": "marie@example.be",
         "country": "Belgique",
+        **CONTACT,
     }
     response = admin_client.post(reverse("clients:client_create"), data)
     client = Client.objects.get()
@@ -222,6 +244,7 @@ def test_create_business_client_shows_french_errors(admin_client):
     content = response.content.decode()
     assert "Le nom de l&#x27;entreprise est obligatoire." in content
     assert "Le numéro de TVA est obligatoire pour une entreprise." in content
+    assert content.count("Ce champ est obligatoire.") == 4  # street, postal code, city, phone
     assert Client.objects.count() == 0
 
 
@@ -233,6 +256,7 @@ def test_edit_client(admin_client):
         "last_name": "Lambert-Dubois",
         "email": client.email,
         "country": "Belgique",
+        **CONTACT,
     }
     admin_client.post(reverse("clients:client_edit", args=[client.pk]), data)
     client.refresh_from_db()
