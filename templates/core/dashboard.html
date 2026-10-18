@@ -114,6 +114,34 @@
   </article>
 </div>
 
+<article id="documents">
+  <header class="page-header">
+    <h2>Documents à compléter</h2>
+    <a href="{% url 'storage:booking_list' %}?documents=a-completer">Toutes les réservations concernées</a>
+  </header>
+  {% if documents_to_complete %}
+  <p><small class="muted">Véhicules en stock ou attendus dans les {{ upcoming_days }} prochains jours dont la pièce d'identité ou l'assurance n'est pas vérifiée comme valide.</small></p>
+  <div class="overflow-auto">
+    <table class="striped compact">
+      <thead><tr><th scope="col">Entrée</th><th scope="col">Véhicule</th><th scope="col">Client</th><th scope="col">Statut</th><th scope="col">Pièce d'identité</th><th scope="col">Assurance</th></tr></thead>
+      <tbody>
+        {% for booking in documents_to_complete %}
+        <tr>
+          <td>{{ booking.start_date|date:"d/m" }}</td>
+          <td><a href="{% url 'storage:booking_detail' booking.pk %}#documents">{{ booking.vehicle.plate }}</a></td>
+          <td class="wrap">{{ booking.vehicle.client.display_name }}</td>
+          <td>{% include "includes/status_badge.html" %}</td>
+          {% for doc in booking.documents %}<td>{% include "includes/document_badge.html" %}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="ok">✓ Tous les documents des véhicules en stock et des prochaines entrées sont vérifiés.</p>
+  {% endif %}
+</article>
+
 <div class="grid dashboard-charts">
   <article>
     <header>

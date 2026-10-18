@@ -137,6 +137,12 @@ or templates, so it can be unit-tested.
   length or a booking's vehicle is changed, and before the first invoice of a booking. Once
   invoiced, the price stays (correct with a credit note and a new invoice). "Prolonger" keeps
   the price. Bookings made before pricing per band keep their flat price.
+- **Document checks** (backlog V3-1): every booking has an ID and an insurance status
+  (`Booking.id_status`, `insurance_status`: manquant / valide / invalide), set by hand on the
+  booking page with `storage.services.set_document_status()`, which records who, when and an
+  optional note. Each booking is checked again, nothing is copied from an earlier one, and no
+  file is stored (paper copies stay in the physical folder). The bookings list filters them
+  (`?documents=a-completer`) and the dashboard lists those in stock or starting soon.
 - **Planning** (`/planning/`, logic in `storage/planning.py`) shows 13 windows of 2 weeks from
   the Monday of the current week. Each cell is the peak occupancy of the row in that window
   (green below 70 %, orange 70–95 %, red above 95 %) with ⚠ when a vehicle of the row is boxed

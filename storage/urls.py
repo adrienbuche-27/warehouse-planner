@@ -24,6 +24,11 @@ urlpatterns = [
     path("reservations/<int:pk>/modifier/", views.booking_edit, name="booking_edit"),
     path("reservations/<int:pk>/prolonger/", views.booking_extend, name="booking_extend"),
     path(
+        "reservations/<int:pk>/documents/<str:document>/",
+        views.booking_document,
+        name="booking_document",
+    ),
+    path(
         "reservations/<int:pk>/<str:action>/",
         views.booking_action,
         name="booking_action",

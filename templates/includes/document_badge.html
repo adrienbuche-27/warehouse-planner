@@ -1,0 +1,2 @@
+{# Status of a document check of a booking (doc = Booking.document(...)). #}
+<span class="badge doc-{{ doc.status }}">{% if doc.status == "valid" %}✓ {% elif doc.status == "invalid" %}✗ {% endif %}{{ doc.status_label }}</span>

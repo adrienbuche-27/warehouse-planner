@@ -6,7 +6,11 @@ left out of V1 (Peppol, waitlist, GDPR tools…).
 
 ## To do
 
-### V3-1 – Document checks on each booking
+Nothing at the moment.
+
+## Done (V3)
+
+### V3-1 – Document checks on each booking ✓
 
 *Bookings · compliance · small to medium*
 

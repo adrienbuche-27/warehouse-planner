@@ -580,3 +580,37 @@ a.map-vehicle:hover { background: #1d5fae; color: #fff; }
   .map-free:hover { background: none; }
   a.map-vehicle { text-decoration: none; }
 }
+
+/* Document checks of a booking (ID, insurance) */
+.doc-valid { background: #e8f5e9; color: #1b5e20; }
+.doc-invalid { background: #ffebee; color: #8e1b1b; }
+.doc-missing { background: #eeeeee; color: #555; }
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--pico-spacing);
+}
+.document-check {
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  padding: 0.75rem;
+  margin: 0;
+}
+.document-head { display: flex; align-items: center; gap: 0.5rem; }
+.document-note { margin: 0.25rem 0 0; font-size: 0.9rem; }
+.document-check input[name="note"] { margin: 0.5rem 0; }
+.document-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.document-actions button { width: auto; margin: 0; padding: 0.35rem 0.7rem; }
+button.danger.outline { background: transparent; color: var(--app-danger); }
+.doc-icons { white-space: nowrap; }
+.doc-mini {
+  display: inline-block;
+  min-width: 2.2rem;
+  margin-right: 0.2rem;
+  padding: 0 0.3rem;
+  border-radius: 0.3rem;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.nowrap { white-space: nowrap; }

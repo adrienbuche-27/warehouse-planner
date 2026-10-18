@@ -25,7 +25,7 @@ from storage.forms import (
     RowForm,
     StatusDateForm,
 )
-from storage.models import Booking, BookingStatus, Row, compute_end_date
+from storage.models import DOCUMENTS, Booking, BookingStatus, Row, compute_end_date
 
 MAX_VEHICLE_LENGTH = Decimal("20")  # same limit as the vehicle form
 
@@ -117,12 +117,15 @@ def booking_list(request):
     date_from = _parse_date(request.GET.get("du"))
     date_to = _parse_date(request.GET.get("au"))
     query = request.GET.get("q", "").strip()
+    documents = request.GET.get("documents", "")
 
     bookings = Booking.objects.select_related("vehicle__client", "row")
     if status == "en-cours":
         bookings = bookings.active()
     elif status in BookingStatus.values:
         bookings = bookings.filter(status=status)
+    if documents == "a-completer":
+        bookings = bookings.documents_incomplete()
     if row_id.isdigit():
         bookings = bookings.filter(row_id=row_id)
     if client_id.isdigit():
@@ -151,6 +154,7 @@ def booking_list(request):
         "date_from": date_from,
         "date_to": date_to,
         "query": query,
+        "documents": documents,
     }
     template = "storage/_booking_results.html" if _is_htmx(request) else "storage/booking_list.html"
     return render(request, template, context)
@@ -254,6 +258,26 @@ def booking_action(request, pk, action):
     except services.BookingActionError as exc:
         messages.error(request, str(exc))
     return redirect("storage:booking_detail", pk=booking.pk)
+
+
+@require_POST
+def booking_document(request, pk, document):
+    """Record the check of the ID or the insurance of a booking (one click: valide, invalide or
+    manquant, with an optional note)."""
+    booking = get_object_or_404(Booking, pk=pk)
+    if document not in DOCUMENTS:
+        raise Http404
+    status = request.POST.get("status", "")
+    try:
+        services.set_document_status(
+            booking, document, status, request.user, request.POST.get("note", "")
+        )
+    except services.BookingActionError as exc:
+        messages.error(request, str(exc))
+    else:
+        check = booking.document(document)
+        messages.success(request, f"{check.label} : {check.status_label.lower()}.")
+    return redirect(reverse("storage:booking_detail", args=[booking.pk]) + "#documents")
 
 
 @require_POST

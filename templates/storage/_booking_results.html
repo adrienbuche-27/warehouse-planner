@@ -7,22 +7,20 @@
         <th scope="col">Véhicule</th>
         <th scope="col">Client</th>
         <th scope="col">Emplacement</th>
-        <th scope="col">Du</th>
-        <th scope="col">Au</th>
-        <th scope="col">Périodes</th>
+        <th scope="col">Période</th>
         <th scope="col">Statut</th>
+        <th scope="col">Documents</th>
       </tr>
     </thead>
     <tbody>
       {% for booking in page.object_list %}
       <tr>
-        <th scope="row"><a href="{% url 'storage:booking_detail' booking.pk %}">{{ booking.vehicle.plate }}</a></th>
+        <th scope="row" class="nowrap"><a href="{% url 'storage:booking_detail' booking.pk %}">{{ booking.vehicle.plate }}</a></th>
         <td><a href="{% url 'clients:client_detail' booking.vehicle.client_id %}">{{ booking.vehicle.client.display_name }}</a></td>
         <td>{{ booking.row.code }} · pos. {{ booking.position }}</td>
-        <td>{{ booking.start_date|date }}</td>
-        <td>{{ booking.end_date|date }}</td>
-        <td>{{ booking.periods }}</td>
+        <td class="nowrap">du {{ booking.start_date|date }}<br>au {{ booking.end_date|date }} <small class="muted">({{ booking.periods }} pér.)</small></td>
         <td>{% include "includes/status_badge.html" %}</td>
+        <td class="doc-icons">{% for doc in booking.documents %}<span class="doc-mini doc-{{ doc.status }}" title="{{ doc.label }} : {{ doc.status_label|lower }}">{% if doc.slug == "identite" %}ID{% else %}Ass.{% endif %}</span>{% endfor %}</td>
       </tr>
       {% endfor %}
     </tbody>
