@@ -59,6 +59,15 @@ def test_wrong_password_shows_french_error(client):
     assert "incorrect" in response.content.decode()
 
 
+def test_french_even_when_the_browser_asks_for_english(admin_client):
+    response = admin_client.post(
+        reverse("clients:client_create"), {"client_type": "private"}, HTTP_ACCEPT_LANGUAGE="en-US"
+    )
+    content = response.content.decode()
+    assert "Ce champ est obligatoire." in content
+    assert "This field is required." not in content
+
+
 def test_logout_requires_post_and_redirects_to_login(admin_client):
     response = admin_client.post(reverse("logout"))
     assert response.status_code == 302

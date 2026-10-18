@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load formatting %}
+
+{% block title %}Plan de l'entrepôt{% endblock %}
+
+{% block content %}
+<p class="no-print"><a href="{% url 'storage:planning' %}">← Planning</a></p>
+<div class="page-header">
+  <hgroup>
+    <h1>Plan de l'entrepôt</h1>
+    {% if is_range %}
+      <p>Du {{ day|date:"d/m/Y" }} au {{ end|date:"d/m/Y" }} : {{ map.vehicle_count }} véhicule{{ map.vehicle_count|pluralize }} présent{{ map.vehicle_count|pluralize }} à un moment, {{ map.total_free_m|metres_short }}&nbsp;m libres au moment le plus chargé.</p>
+    {% else %}
+      <p>Le {{ day|date:"l d/m/Y" }} : {{ map.vehicle_count }} véhicule{{ map.vehicle_count|pluralize }}, {{ map.occupancy_percent }} % occupé, {{ map.total_free_m|metres_short }}&nbsp;m libres.</p>
+    {% endif %}
+  </hgroup>
+  <div class="actions no-print">
+    <button type="button" class="secondary outline" onclick="window.print()">Imprimer</button>
+    <a href="{% url 'storage:booking_find' %}" role="button" class="outline">Trouver un emplacement</a>
+  </div>
+</div>
+<p class="no-print"><small class="muted">Gestion de l'espace : qui est où, ce qui reste libre et les véhicules bloqués. Pour placer un nouveau véhicule, utilisez « Trouver un emplacement ».</small></p>
+
+<div class="planning-toolbar no-print">
+  <nav aria-label="Navigation dans le temps">
+    <ul>
+      <li><a href="{{ nav.back }}" role="button" class="secondary outline">‹ 7 jours plus tôt</a></li>
+      <li><a href="{{ nav.today }}" role="button" class="secondary">Aujourd'hui</a></li>
+      <li><a href="{{ nav.forward }}" role="button" class="secondary outline">7 jours plus tard ›</a></li>
+    </ul>
+  </nav>
+  <form method="get" class="map-dates-form">
+    <fieldset role="group">
+      <input type="date" name="date" value="{{ day|date:'Y-m-d' }}" aria-label="Du">
+      <input type="date" name="au" value="{% if is_range %}{{ end|date:'Y-m-d' }}{% endif %}" aria-label="Au (facultatif)" title="Au (facultatif : vide = un seul jour)">
+      <button type="submit">Afficher</button>
+    </fieldset>
+    <small>Du … au … (laisser « au » vide pour un seul jour)</small>
+  </form>
+</div>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<p class="map-legend">
+  <span class="map-vehicle-sample status-stored"></span> en stock ·
+  <span class="map-vehicle-sample status-reserved"></span> réservé (pas encore entré) ·
+  {% if is_range %}<span class="map-vehicle-sample partial"></span> présent seulement une partie de la période · place libre au moment le plus chargé ·{% endif %}
+  <span class="warn">⚠</span> bloqué à l'entrée ou à la sortie{% if is_range %} pendant la période{% else %} ce jour-là{% endif %} (déplacements sous la rangée)
+  <span class="no-print">· cliquez sur un véhicule pour ouvrir sa réservation, ou sur la place libre d'une rangée pour y créer une réservation.</span>
+</p>
+
+{% include "storage/_warehouse_map.html" with mode="view" %}
+
+<script>
+  // Print the move plans too: open every "blocages" line before printing.
+  window.addEventListener("beforeprint", () => {
+    document.querySelectorAll("details.map-row-plan").forEach((details) => { details.open = true; });
+  });
+</script>
+{% endblock %}

@@ -1,6 +1,8 @@
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from clients import services
@@ -8,6 +10,7 @@ from clients.forms import ClientForm, VehicleForm
 from clients.models import Client, ClientType, Vehicle
 from core.services import protected_objects
 from invoicing.services import outstanding_balance
+from storage import services as storage_services
 from storage.models import Booking
 
 PAGE_SIZE = 50
@@ -65,11 +68,16 @@ def client_detail(request, pk):
 def client_edit(request, pk):
     client = get_object_or_404(Client, pk=pk)
     form = ClientForm(request.POST or None, instance=client)
+    # ?next=<page>: go back there after saving (e.g. the invoice waiting for the address).
+    next_url = request.POST.get("next") or request.GET.get("next", "")
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        next_url = ""
     if form.is_valid():
         form.save()
         messages.success(request, "Client enregistré.")
-        return redirect("clients:client_detail", pk=client.pk)
-    return render(request, "clients/client_form.html", {"form": form, "client": client})
+        return redirect(next_url or reverse("clients:client_detail", args=[client.pk]))
+    context = {"form": form, "client": client, "next_url": next_url}
+    return render(request, "clients/client_form.html", context)
 
 
 @require_POST
@@ -137,12 +145,30 @@ def vehicle_detail(request, pk):
 
 def vehicle_edit(request, pk):
     vehicle = get_object_or_404(Vehicle, pk=pk)
+    saved_length = vehicle.length_m  # the form writes the new values into `vehicle`
     form = VehicleForm(request.POST or None, instance=vehicle)
+    overflows = []
     if form.is_valid():
+        # A longer vehicle may no longer fit in the rows it is booked in: ask first.
+        new_length = form.cleaned_data["length_m"]
+        if new_length > saved_length and not request.POST.get("confirm_overflow"):
+            overflows = storage_services.bookings_not_fitting_with_length(vehicle, new_length)
+    if form.is_valid() and not overflows:
         form.save()
         messages.success(request, "Véhicule enregistré.")
+        # The price depends on the length: recalculate the bookings not invoiced yet.
+        for change in storage_services.refresh_vehicle_prices(vehicle):
+            level = messages.INFO if change.applied else messages.WARNING
+            messages.add_message(request, level, change.as_text())
         return redirect("clients:vehicle_detail", pk=vehicle.pk)
-    return render(request, "clients/vehicle_form.html", {"form": form, "vehicle": vehicle})
+    if overflows:
+        messages.warning(
+            request,
+            "Avec cette longueur, le véhicule ne tiendrait plus dans sa rangée. "
+            "Vérifiez la liste ci-dessous.",
+        )
+    context = {"form": form, "vehicle": vehicle, "overflows": overflows}
+    return render(request, "clients/vehicle_form.html", context)
 
 
 @require_POST

@@ -9,7 +9,7 @@ from core.models import VatRegime
 from core.pricing import compute_totals, compute_vat
 from storage import services
 from storage.models import Booking, BookingStatus, compute_end_date
-from tests.factories import make_booking, make_row, make_vehicle, set_settings
+from tests.factories import BANDS_2M_12EUR, make_booking, make_row, make_vehicle, set_settings
 
 pytestmark = pytest.mark.django_db
 
@@ -269,24 +269,30 @@ def test_booking_stores_end_date():
 
 
 def test_price_snapshot_is_unaffected_by_later_settings_changes():
-    set_settings(price_per_period=Decimal("45.00"), vat_rate=Decimal("21.00"))
-    booking = make_booking(make_row(), 1, MAR_1, periods=3)
-    set_settings(price_per_period=Decimal("60.00"), vat_regime=VatRegime.FRANCHISE)
+    set_settings(**BANDS_2M_12EUR, vat_rate=Decimal("21.00"))
+    booking = make_booking(make_row(), 1, MAR_1, periods=3, length="7.40")
+    set_settings(
+        price_per_band=Decimal("20.00"),
+        band_length_m=Decimal("3.00"),
+        vat_regime=VatRegime.FRANCHISE,
+    )
     booking = Booking.objects.get(pk=booking.pk)
     booking.notes = "modifiée"
     booking.save()
-    assert booking.price_per_period == Decimal("45.00")
+    assert (booking.band_length_m, booking.price_per_band) == (Decimal("2.00"), Decimal("12.00"))
+    assert booking.band_count == 4
+    assert booking.price_per_period == Decimal("48.00")
     assert booking.vat_regime == VatRegime.STANDARD
-    assert booking.totals.excl_vat == Decimal("135.00")
-    assert booking.totals.vat == Decimal("28.35")
-    assert booking.totals.incl_vat == Decimal("163.35")
+    assert booking.totals.excl_vat == Decimal("144.00")
+    assert booking.totals.vat == Decimal("30.24")
+    assert booking.totals.incl_vat == Decimal("174.24")
 
 
 def test_booking_requires_a_price_in_settings():
     from django.core.exceptions import ValidationError
 
-    set_settings(price_per_period=None)
-    with pytest.raises(ValidationError, match="prix par période"):
+    set_settings(price_per_band=None)
+    with pytest.raises(ValidationError, match="prix par tranche"):
         Booking.objects.create(
             vehicle=make_vehicle(), row=make_row(), position=1, start_date=MAR_1, periods=1
         )
@@ -381,7 +387,7 @@ def test_cancel_reserved_booking(row16):
 
 def test_extend_recomputes_end_date_and_keeps_price(row16):
     booking = make_booking(row16, 1, MAR_1, periods=1)
-    set_settings(price_per_period=Decimal("99.00"))
+    set_settings(price_per_band=Decimal("99.00"))
     check = services.extend(booking, 2)
     assert check.applied
     booking.refresh_from_db()

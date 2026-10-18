@@ -64,15 +64,24 @@ class AppSettings(models.Model):
         help_text="Durée d'une période de facturation. À laisser à 14 jours sauf raison précise.",
     )
 
-    # Tarifs & TVA
-    price_per_period = models.DecimalField(
-        "prix par période (HTVA)",
+    # Tarifs & TVA. The price depends on the vehicle length, per band (see core/pricing.py).
+    band_length_m = models.DecimalField(
+        "taille d'une tranche (m)",
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("2.00"),
+        validators=[MinValueValidator(Decimal("0.10"), "Une tranche fait au moins 0,10 m.")],
+        help_text="Une tranche entamée est comptée entière : avec 2 m, 7,40 m = 4 tranches.",
+    )
+    price_per_band = models.DecimalField(
+        "prix par tranche et par période (HTVA)",
         max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
         validators=[MinValueValidator(Decimal("0"))],
-        help_text="Prix hors TVA pour une période.",
+        help_text="Prix hors TVA d'une tranche pour une période. "
+        "Prix d'une période = nombre de tranches × ce prix.",
     )
     vat_regime = models.CharField(
         "régime de TVA",

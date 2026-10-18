@@ -1,0 +1,26 @@
+{# Client dropdown of the booking form, re-rendered when a client is added on the fly. #}
+<label for="id_client">Client</label>
+<div class="select-with-add">
+  <select name="client" id="id_client" {% if errors %}aria-invalid="true"{% endif %}
+          hx-get="{% url 'storage:booking_vehicles' %}" hx-target="#vehicle-field" hx-trigger="change">
+    <option value="">— Choisir un client —</option>
+    {% for client in clients %}
+      <option value="{{ client.pk }}" {% if client.pk|stringformat:"s" == selected %}selected{% endif %}>{{ client.display_name }}</option>
+    {% endfor %}
+  </select>
+  <button type="button" class="outline"
+          hx-get="{% url 'storage:booking_quick_client' %}" hx-target="#quick-client">
+    + Nouveau client
+  </button>
+</div>
+{% for error in errors %}<small class="error">{{ error }}</small>{% endfor %}
+{% if new_client %}
+  {# The new client is selected: close its form and go straight on to its first vehicle. #}
+  <div id="quick-client" hx-swap-oob="true"></div>
+  <div id="vehicle-field" hx-swap-oob="true">
+    {% include "storage/_vehicle_select.html" with vehicles=None selected="" client_id=new_client.pk %}
+  </div>
+  <div id="quick-vehicle" hx-swap-oob="true">
+    {% include "storage/_quick_vehicle_form.html" with form=vehicle_form client=new_client %}
+  </div>
+{% endif %}

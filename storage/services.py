@@ -12,14 +12,16 @@ and hypothetical ones (a booking being created or moved, a row being shortened).
 import datetime
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 
 from django.db import transaction
 from django.utils import timezone
 
 from clients.models import Vehicle
+from core.formatting import format_money
 from core.models import AppSettings
+from core.pricing import Totals, band_count, compute_totals
 from storage.models import Booking, BookingStatus, Row, compute_end_date
 
 ROW_CODE_PATTERN = re.compile(r"^R(\d+)$")
@@ -350,7 +352,8 @@ def suggest_placements(
     2. least free space left at the peak (keeps big gaps for big vehicles),
     3. row display order. This naturally puts vehicles leaving later deeper in the row.
     """
-    if vehicle_conflicts(vehicle, start, end, exclude_booking):
+    # A vehicle not saved yet (only a length, on the warehouse map) has no other bookings.
+    if vehicle.pk and vehicle_conflicts(vehicle, start, end, exclude_booking):
         return []
 
     app_settings = AppSettings.load()
@@ -394,6 +397,120 @@ def suggest_placements(
         key=lambda s: (s.conflict_count, s.wasted_m, s.row.display_order, s.row.code, s.position)
     )
     return suggestions
+
+
+# --- Price per band (vehicle length) --------------------------------------------
+
+
+def is_invoiced(booking: Booking) -> bool:
+    """True once some periods are on an invoice that is not cancelled (a draft counts)."""
+    from invoicing.services import invoiced_periods  # invoicing depends on storage
+
+    return invoiced_periods(booking) > 0
+
+
+@dataclass
+class PriceChange:
+    """The vehicle length gives another number of bands than the booking's price."""
+
+    booking: Booking
+    old_bands: int
+    new_bands: int
+    applied: bool  # False: the booking is already invoiced, its price is kept
+
+    def as_text(self) -> str:
+        b = self.booking
+        stay = f"réservation du {b.start_date:%d/%m/%Y} au {b.end_date:%d/%m/%Y}"
+        if self.applied:
+            return (
+                f"Prix recalculé pour la {stay} : {self.new_bands} tranche(s) au lieu de "
+                f"{self.old_bands}, soit {format_money(b.price_per_period)} HTVA par période."
+            )
+        return (
+            f"La {stay} est déjà facturée : son prix reste basé sur {self.old_bands} "
+            f"tranche(s) au lieu de {self.new_bands}. Pour le corriger : supprimez le brouillon "
+            "de facture et recréez-le, ou, si la facture est émise, faites une note de crédit "
+            "puis une nouvelle facture."
+        )
+
+
+def refresh_price(booking: Booking) -> PriceChange | None:
+    """Recalculate the bands from the vehicle's current length.
+
+    Applied only while the booking is not invoiced: once on an invoice, its price stays as
+    invoiced (corrections go through a credit note and a new invoice). Returns None when the
+    number of bands does not change, or for a booking with a flat price (before bands).
+    """
+    if not booking.priced_per_band:
+        return None
+    old_bands = booking.band_count
+    new_bands = band_count(booking.vehicle.length_m, booking.band_length_m)
+    if booking.billed_length_m == booking.vehicle.length_m:
+        return None
+    if is_invoiced(booking):
+        if new_bands == old_bands:
+            return None
+        return PriceChange(booking, old_bands, new_bands, applied=False)
+    booking.compute_price()
+    booking.save(update_fields=["billed_length_m", "band_count", "price_per_period", "updated_at"])
+    if new_bands == old_bands:
+        return None  # same price, only the recorded length was updated
+    return PriceChange(booking, old_bands, new_bands, applied=True)
+
+
+def refresh_vehicle_prices(vehicle: Vehicle) -> list[PriceChange]:
+    """After the vehicle length was corrected: `refresh_price` on each of its bookings."""
+    bookings = vehicle.bookings.exclude(status=BookingStatus.CANCELLED).select_related("vehicle")
+    return [change for booking in bookings if (change := refresh_price(booking))]
+
+
+@dataclass(frozen=True)
+class PricePreview:
+    """Price shown live in the booking form."""
+
+    length_m: Decimal | None
+    band_length_m: Decimal | None
+    band_count: int | None
+    price_per_band: Decimal | None
+    price_per_period: Decimal
+    totals: Totals
+
+
+def price_preview(
+    vehicle: Vehicle | None, periods: int, booking: Booking | None = None
+) -> PricePreview | None:
+    """Price of `periods` periods for `vehicle`, shown live in the booking form.
+
+    A new booking uses today's settings. An existing one uses its own band size and price per
+    band; once invoiced (or with a flat price from before bands) its price is shown as is.
+    Returns None while the vehicle, the periods or the price per band is missing.
+    """
+    if not periods:
+        return None
+    editing = booking is not None and booking.pk is not None
+    if editing and (not booking.priced_per_band or is_invoiced(booking)):
+        price = booking.price_per_period
+        return PricePreview(
+            length_m=booking.billed_length_m,
+            band_length_m=booking.band_length_m,
+            band_count=booking.band_count,
+            price_per_band=booking.price_per_band,
+            price_per_period=price,
+            totals=compute_totals(periods, price, booking.vat_regime, booking.vat_rate),
+        )
+    source = booking if editing else AppSettings.load()
+    if vehicle is None or source.price_per_band is None:
+        return None
+    bands = band_count(vehicle.length_m, source.band_length_m)
+    price = bands * source.price_per_band
+    return PricePreview(
+        length_m=vehicle.length_m,
+        band_length_m=source.band_length_m,
+        band_count=bands,
+        price_per_band=source.price_per_band,
+        price_per_period=price,
+        totals=compute_totals(periods, price, source.vat_regime, source.vat_rate),
+    )
 
 
 # --- Status changes ------------------------------------------------------------
@@ -529,6 +646,30 @@ def bookings_not_fitting(
             if used > length:
                 affected.extend(slot.booking for slot in present if slot.booking not in affected)
     return sorted(affected, key=lambda b: (b.row.display_order, b.start_date, b.position))
+
+
+@dataclass
+class LengthOverflow:
+    """A booking of a vehicle that would no longer fit in its row with a new length."""
+
+    booking: Booking
+    fit: FitResult
+
+
+def bookings_not_fitting_with_length(vehicle: Vehicle, new_length: Decimal) -> list[LengthOverflow]:
+    """Current and future active bookings of `vehicle` that would no longer fit in their row
+    if the vehicle were `new_length` long (from today on). Nothing is saved or changed."""
+    app_settings = AppSettings.load()
+    overflows = []
+    for booking in current_and_future_bookings().filter(vehicle=vehicle):
+        start = max(today(), booking.start_date)
+        candidate = replace(Slot.of(booking), start=start, length=new_length)
+        others = _active_slots(booking.row, start, booking.end_date, booking)
+        row_length = booking.row.effective_length_for(app_settings)
+        fit = _fit(candidate, others, row_length, app_settings.vehicle_gap_m)
+        if fit.length_conflicts:
+            overflows.append(LengthOverflow(booking, fit))
+    return overflows
 
 
 def bookings_preventing_deactivation(row: Row) -> list[Booking]:

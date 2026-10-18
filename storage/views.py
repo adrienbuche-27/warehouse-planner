@@ -1,5 +1,6 @@
 import datetime
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -13,12 +14,20 @@ from django.views.decorators.http import require_POST
 from clients.models import Client, Vehicle
 from core.forms import BulkRowCreateForm
 from core.models import AppSettings
-from core.pricing import compute_totals
 from invoicing import services as invoicing_services
 from storage import planning as planning_module
-from storage import services
-from storage.forms import BookingForm, ExtendForm, QuickVehicleForm, RowForm, StatusDateForm
+from storage import services, warehouse_map
+from storage.forms import (
+    BookingForm,
+    ExtendForm,
+    QuickClientForm,
+    QuickVehicleForm,
+    RowForm,
+    StatusDateForm,
+)
 from storage.models import Booking, BookingStatus, Row, compute_end_date
+
+MAX_VEHICLE_LENGTH = Decimal("20")  # same limit as the vehicle form
 
 
 @require_POST
@@ -147,33 +156,18 @@ def booking_list(request):
     return render(request, template, context)
 
 
-def _price_preview(periods, booking=None):
-    """Totals shown live in the booking form: the booking's own prices, or today's settings."""
-    if booking is not None and booking.pk:
-        price, regime, rate = booking.price_per_period, booking.vat_regime, booking.vat_rate
-    else:
-        app_settings = AppSettings.load()
-        price, regime, rate = (
-            app_settings.price_per_period,
-            app_settings.vat_regime,
-            app_settings.vat_rate,
-        )
-    if price is None or not periods:
-        return None
-    return compute_totals(periods, price, regime, rate)
-
-
 def _booking_form_page(request, form, booking=None):
     context = {
         "form": form,
         "booking": booking,
-        "price_missing": AppSettings.load().price_per_period is None,
+        "price_missing": AppSettings.load().price_per_band is None,
     }
     return render(request, "storage/booking_form.html", context)
 
 
 def booking_create(request):
-    """New booking. Planning links prefill it with ?rangee=<id>&debut=<yyyy-mm-dd>."""
+    """New booking. Planning and warehouse map links prefill it: ?rangee=<id>&debut=<yyyy-mm-dd>,
+    and from the map also &position=<n>&periodes=<n>&vehicule=<id>."""
     if request.method == "POST":
         form = BookingForm(request.POST)
         if form.is_valid():
@@ -186,7 +180,14 @@ def booking_create(request):
                 return redirect("storage:booking_detail", pk=booking.pk)
     else:
         initial = {"start_date": _parse_date(request.GET.get("debut")) or services.today()}
-        for field, param in [("row", "rangee"), ("client", "client"), ("vehicle", "vehicule")]:
+        prefill = [
+            ("row", "rangee"),
+            ("position", "position"),
+            ("periods", "periodes"),
+            ("client", "client"),
+            ("vehicle", "vehicule"),
+        ]
+        for field, param in prefill:
             if request.GET.get(param, "").isdigit():
                 initial[field] = request.GET[param]
         if "vehicle" in initial and "client" not in initial:
@@ -206,6 +207,10 @@ def booking_edit(request, pk):
     if form.is_valid():
         form.save()
         messages.success(request, "Réservation enregistrée.")
+        # Another vehicle may have another length, hence another number of bands.
+        if change := services.refresh_price(booking):
+            level = messages.INFO if change.applied else messages.WARNING
+            messages.add_message(request, level, change.as_text())
         return redirect("storage:booking_detail", pk=booking.pk)
     return _booking_form_page(request, form, booking)
 
@@ -286,25 +291,43 @@ def booking_vehicle_options(request):
     if client_id.isdigit():
         vehicles = Vehicle.objects.filter(client_id=client_id, is_archived=False)
     selected = request.GET.get("selected", "")
-    return render(
+    response = render(
         request,
         "storage/_vehicle_select.html",
         {"vehicles": vehicles, "selected": selected, "client_id": client_id},
     )
+    return _vehicle_selected(response)
+
+
+def _vehicle_selected(response):
+    """Tell the booking form that the vehicle dropdown changed, so the price is recomputed
+    (the price depends on the vehicle length). "After settle": once the new dropdown is in
+    the page, so the price is computed for the newly selected vehicle."""
+    response["HX-Trigger-After-Settle"] = "vehicle-selected"
+    return response
 
 
 def booking_summary(request):
-    """End date and prices (HT / TVA / TTC), recomputed while the form is filled."""
+    """End date and prices (bands, HT / TVA / TTC), recomputed while the form is filled."""
     start = _parse_date(request.GET.get("start_date"))
     periods = request.GET.get("periods", "")
     periods = int(periods) if periods.isdigit() and 0 < int(periods) <= 100 else None
     booking = None
     if request.GET.get("booking", "").isdigit():
         booking = Booking.objects.filter(pk=request.GET["booking"]).first()
+    vehicle = None
+    if request.GET.get("vehicle", "").isdigit():
+        vehicle = Vehicle.objects.filter(pk=request.GET["vehicle"]).first()
     end = None
     if start and periods:
         end = compute_end_date(start, periods, AppSettings.load().period_days)
-    context = {"end": end, "periods": periods, "totals": _price_preview(periods, booking)}
+    context = {
+        "end": end,
+        "periods": periods,
+        "vehicle": vehicle,
+        "price": services.price_preview(vehicle, periods, booking),
+        "price_missing": AppSettings.load().price_per_band is None,
+    }
     return render(request, "storage/_booking_summary.html", context)
 
 
@@ -322,6 +345,48 @@ def booking_suggestions(request):
         context["suggestions"] = services.suggest_placements(vehicle, start, end, booking)[:5]
         context["already_booked"] = bool(services.vehicle_conflicts(vehicle, start, end, booking))
     return render(request, "storage/_suggestions.html", context)
+
+
+def booking_map(request):
+    """Warehouse map in the booking form, for the vehicle and dates being booked."""
+    vehicle = Vehicle.objects.filter(pk=request.GET.get("vehicle") or 0).first()
+    start = _parse_date(request.GET.get("start_date"))
+    periods = request.GET.get("periods", "")
+    booking = None
+    if request.GET.get("booking", "").isdigit():
+        booking = Booking.objects.filter(pk=request.GET["booking"]).first()
+    context = {
+        "missing": not (vehicle and start and periods.isdigit() and 0 < int(periods) <= 100),
+        "selected_row": request.GET.get("row", ""),
+    }
+    if not context["missing"]:
+        end = compute_end_date(start, int(periods), AppSettings.load().period_days)
+        context["already_booked"] = bool(services.vehicle_conflicts(vehicle, start, end, booking))
+        context["map"] = warehouse_map.build_map(start, end, vehicle, booking)
+    return render(request, "storage/_booking_map.html", context)
+
+
+def booking_quick_client(request):
+    """ "+ Nouveau client" inside the booking form.
+
+    Once saved, the new client is selected and the new-vehicle form opens for them, so the
+    booking can go on without leaving the page.
+    """
+    if request.method == "POST":
+        form = QuickClientForm(request.POST)
+        if form.is_valid():
+            client = form.save()
+            context = {
+                "clients": Client.objects.filter(is_archived=False),
+                "selected": str(client.pk),
+                "new_client": client,
+                "vehicle_form": QuickVehicleForm(),
+            }
+            return _vehicle_selected(render(request, "storage/_client_select.html", context))
+        response = render(request, "storage/_quick_client_form.html", {"form": form})
+        response["HX-Retarget"] = "#quick-client"
+        return response
+    return render(request, "storage/_quick_client_form.html", {"form": QuickClientForm()})
 
 
 def booking_quick_vehicle(request):
@@ -343,7 +408,7 @@ def booking_quick_vehicle(request):
                 "client_id": client.pk,
                 "close_quick_form": True,
             }
-            return render(request, "storage/_vehicle_select.html", context)
+            return _vehicle_selected(render(request, "storage/_vehicle_select.html", context))
         response = render(
             request, "storage/_quick_vehicle_form.html", {"form": form, "client": client}
         )
@@ -357,11 +422,12 @@ def booking_quick_vehicle(request):
 
 
 def _parse_decimal(value):
+    """A positive number typed with a comma or a dot ("7,40"), or None."""
     try:
         number = Decimal((value or "").replace(",", "."))
     except InvalidOperation:
         return None
-    return number if number > 0 else None
+    return number if number.is_finite() and number > 0 else None
 
 
 def planning(request):
@@ -385,6 +451,88 @@ def planning(request):
         },
     }
     return render(request, "storage/planning.html", context)
+
+
+MAX_PLAN_DAYS = 366  # longest range shown on "Plan de l'entrepôt"
+
+
+def planning_map(request):
+    """ "Plan de l'entrepôt" (space management): who is where on a day (today by default) or
+    over a range of dates, with the vehicles boxed in when entering or leaving."""
+    today = services.today()
+    day = _parse_date(request.GET.get("date")) or today
+    end = _parse_date(request.GET.get("au"))
+    error = ""
+    if end is not None and end < day:
+        error, end = (
+            "La date de fin est antérieure à la date de début : un seul jour est affiché.",
+            None,
+        )
+    elif end is not None and (end - day).days > MAX_PLAN_DAYS:
+        error, end = "Période trop longue (un an au maximum) : un seul jour est affiché.", None
+    end = end or day
+    span = end - day
+
+    def link(first):  # same length of time, shifted
+        params = {"date": first.isoformat()}
+        if span:
+            params["au"] = (first + span).isoformat()
+        return "?" + urlencode(params)
+
+    week = datetime.timedelta(days=7)
+    context = {
+        "map": warehouse_map.build_map(day, end, with_blockings=True),
+        "day": day,
+        "end": end,
+        "is_range": bool(span),
+        "error": error,
+        "nav": {"back": link(day - week), "today": link(today), "forward": link(day + week)},
+    }
+    return render(request, "storage/warehouse_map.html", context)
+
+
+def booking_find(request):
+    """ "Trouver un emplacement": where to book a van (a registered vehicle, or just a length)
+    for a stay, before creating the booking. Each place links to the prefilled booking form."""
+    searched = "date" in request.GET
+    day = _parse_date(request.GET.get("date")) or services.today()
+    periods = request.GET.get("periodes", "")
+    periods = int(periods) if periods.isdigit() and 0 < int(periods) <= 100 else None
+    vehicle = Vehicle.objects.filter(pk=request.GET.get("vehicule") or 0).first()
+    raw_length = request.GET.get("longueur", "").strip()
+    length = _parse_decimal(raw_length)
+    if length is not None and length > MAX_VEHICLE_LENGTH:
+        length = None
+
+    errors = []
+    if searched and periods is None:
+        errors.append("Indiquez le nombre de périodes (de 1 à 100).")
+    if searched and vehicle is None:
+        if raw_length and length is None:
+            errors.append("Longueur invalide : indiquez une longueur entre 0,01 et 20 m.")
+        elif length is None:
+            errors.append("Indiquez la longueur du véhicule ou choisissez un véhicule enregistré.")
+    van = vehicle or (warehouse_map.planned_vehicle(length) if length else None)
+
+    context = {
+        "day": day,
+        "periods": periods,
+        "length": length,
+        "raw_length": raw_length if vehicle is None else "",
+        "vehicle": vehicle,
+        "vehicles": Vehicle.objects.active().select_related("client"),
+        "errors": errors,
+    }
+    if van is not None and periods is not None:
+        end = compute_end_date(day, periods, AppSettings.load().period_days)
+        found = warehouse_map.build_map(day, end, van)
+        context.update(
+            end=end,
+            map=found,
+            best=found.suggestions[:5],
+            already_booked=bool(vehicle and services.vehicle_conflicts(vehicle, day, end)),
+        )
+    return render(request, "storage/booking_find.html", context)
 
 
 def planning_cell(request, row_pk, start):

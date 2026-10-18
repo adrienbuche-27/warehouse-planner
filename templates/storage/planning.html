@@ -12,7 +12,10 @@
     <h1>Planning</h1>
     <p>Occupation maximale de chaque rangée par période de 2 semaines. Cliquez sur une case pour le détail.</p>
   </hgroup>
-  <a href="{% url 'storage:booking_create' %}" role="button">+ Nouvelle réservation</a>
+  <div class="actions">
+    <a href="{% url 'storage:planning_map' %}" role="button" class="secondary outline">Plan de l'entrepôt</a>
+    <a href="{% url 'storage:booking_create' %}" role="button">+ Nouvelle réservation</a>
+  </div>
 </div>
 
 <div class="planning-toolbar">

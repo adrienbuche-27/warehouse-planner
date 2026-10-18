@@ -13,7 +13,14 @@ from django.urls import reverse
 from reminders import services
 from reminders.models import ReminderKind, ReminderLog
 from storage.models import BookingStatus
-from tests.factories import make_booking, make_client, make_row, make_vehicle, set_settings
+from tests.factories import (
+    FLAT_PRICE,
+    make_booking,
+    make_client,
+    make_row,
+    make_vehicle,
+    set_settings,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -24,7 +31,7 @@ TODAY = D(2027, 3, 10)
 @pytest.fixture(autouse=True)
 def reminder_settings():
     set_settings(
-        price_per_period=Decimal("45.00"),
+        **FLAT_PRICE,
         default_row_length_m=Decimal("30.00"),
         reminder_days_before_end=14,
         company_name="Stockage Ardennes",

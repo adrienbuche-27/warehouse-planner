@@ -2,6 +2,7 @@ from django import forms
 from django.db.models import Q
 from django.utils import timezone
 
+from clients.forms import ClientForm
 from clients.models import Client, Vehicle, normalize_plate
 from core.formatting import format_metres
 from core.forms import PicoFormMixin
@@ -119,6 +120,13 @@ class BookingForm(PicoFormMixin, forms.ModelForm):
         return cleaned
 
 
+class QuickClientForm(ClientForm):
+    """ "+ Nouveau client" inside the booking form: the full client form, fields prefixed "qc-"
+    so they never mix with the booking's own fields."""
+
+    prefix = "qc"
+
+
 class QuickVehicleForm(PicoFormMixin, forms.ModelForm):
     """ "+ Nouveau véhicule" inside the booking form (fields prefixed "qv-")."""
 
@@ -126,7 +134,12 @@ class QuickVehicleForm(PicoFormMixin, forms.ModelForm):
 
     class Meta:
         model = Vehicle
-        fields = ["plate", "brand", "model", "length_m", "height_m"]
+        fields = ["plate", "brand", "model", "length_m", "height_m", "notes"]
+        widgets = {"notes": forms.Textarea(attrs={"rows": 2})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["plate"].help_text = "Enregistrée en majuscules, sans espaces."
 
     def clean_plate(self):
         return normalize_plate(self.cleaned_data["plate"])

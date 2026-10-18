@@ -1,0 +1,34 @@
+{# All the client fields, shared by the Clients page and the booking form's "+ Nouveau client". #}
+{# The company fields are only shown for a business (see .client-form in app.css). #}
+<fieldset>
+  <legend>{{ form.client_type.label }}</legend>
+  {% for radio in form.client_type %}
+    <label>{{ radio.tag }} {{ radio.choice_label }}</label>
+  {% endfor %}
+</fieldset>
+
+<div class="field-grid business-only">
+  <div>{% include "includes/field.html" with field=form.company_name %}</div>
+  <div>{% include "includes/field.html" with field=form.vat_number %}</div>
+</div>
+<p class="business-only"><small>Personne de contact (facultatif) :</small></p>
+<div class="field-grid">
+  <div>{% include "includes/field.html" with field=form.first_name %}</div>
+  <div>{% include "includes/field.html" with field=form.last_name %}</div>
+</div>
+
+<h3>Contact</h3>
+<div class="field-grid">
+  <div>{% include "includes/field.html" with field=form.email %}</div>
+  <div>{% include "includes/field.html" with field=form.phone %}</div>
+</div>
+
+<h3>Adresse</h3>
+<div class="field-grid">
+  <div class="field-wide">{% include "includes/field.html" with field=form.street %}</div>
+  <div>{% include "includes/field.html" with field=form.postal_code %}</div>
+  <div>{% include "includes/field.html" with field=form.city %}</div>
+  <div>{% include "includes/field.html" with field=form.country %}</div>
+</div>
+
+{% include "includes/field.html" with field=form.notes %}

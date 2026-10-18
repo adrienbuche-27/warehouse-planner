@@ -12,7 +12,14 @@ from core.forms import AppSettingsForm
 from core.models import AppSettings
 from storage import services
 from storage.models import Booking, BookingStatus
-from tests.factories import make_booking, make_client, make_row, make_vehicle, set_settings
+from tests.factories import (
+    FLAT_PRICE,
+    make_booking,
+    make_client,
+    make_row,
+    make_vehicle,
+    set_settings,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -22,7 +29,7 @@ MAR_1 = datetime.date(2027, 3, 1)
 @pytest.fixture(autouse=True)
 def demo_settings():
     set_settings(
-        price_per_period=Decimal("45.00"),
+        **FLAT_PRICE,
         default_row_length_m=Decimal("16.00"),
         vehicle_gap_m=Decimal("0.50"),
     )
@@ -155,9 +162,9 @@ def test_create_form_prefill_from_planning_and_vehicle(admin_client):
 
 
 def test_create_form_warns_when_price_missing(admin_client):
-    set_settings(price_per_period=None)
+    set_settings(price_per_band=None)
     content = admin_client.get(reverse("storage:booking_create")).content.decode()
-    assert "Le prix par période n'est pas encore défini" in content
+    assert "Le prix par tranche n'est pas encore défini" in content
 
 
 def test_edit_booking_excludes_itself_from_fit_check(admin_client):
@@ -193,12 +200,22 @@ def test_vehicle_options_for_client(admin_client):
 
 
 def test_summary_shows_end_date_and_prices(admin_client):
-    response = admin_client.get(
-        reverse("storage:booking_summary"), {"start_date": "2027-03-01", "periods": "3"}
-    )
-    content = response.content.decode()
+    set_settings(price_per_band=Decimal("12.00"), band_length_m=Decimal("2.00"))
+    vehicle = make_vehicle(length_m=Decimal("7.40"))
+    url = reverse("storage:booking_summary")
+    params = {"start_date": "2027-03-01", "periods": "3", "vehicle": vehicle.pk}
+    content = admin_client.get(url, params).content.decode()
     assert "11/04/2027" in content
-    assert "135,00" in content and "28,35" in content and "163,35" in content
+    assert "4 × 2" in content and "7,40" in content  # 4 bands of 2 m
+    assert "48,00" in content  # per period: 4 × 12,00 €
+    assert "144,00" in content and "30,24" in content and "174,24" in content
+
+
+def test_summary_without_vehicle_asks_for_it(admin_client):
+    params = {"start_date": "2027-03-01", "periods": "3"}
+    content = admin_client.get(reverse("storage:booking_summary"), params).content.decode()
+    assert "11/04/2027" in content
+    assert "choisissez le véhicule pour voir le prix" in content
 
 
 def test_suggestions_endpoint_lists_best_rows(admin_client):
@@ -236,6 +253,63 @@ def test_quick_vehicle_creation(admin_client):
 
     response = admin_client.post(url, {"client": owner.pk, "qv-plate": "", "qv-length_m": ""})
     assert response["HX-Retarget"] == "#quick-vehicle"
+
+
+def test_booking_form_offers_new_client_and_vehicle(admin_client):
+    content = admin_client.get(reverse("storage:booking_create")).content.decode()
+    assert reverse("storage:booking_quick_client") in content
+    assert reverse("storage:booking_quick_vehicle") in content
+    assert 'id="quick-client"' in content
+
+
+def test_quick_client_form_is_the_full_client_form(admin_client):
+    content = admin_client.get(reverse("storage:booking_quick_client")).content.decode()
+    for name in ["client_type", "company_name", "vat_number", "first_name", "last_name"]:
+        assert f'name="qc-{name}"' in content
+    for name in ["email", "phone", "street", "postal_code", "city", "country", "notes"]:
+        assert f'name="qc-{name}"' in content
+
+
+def test_quick_client_creation_selects_it_and_opens_the_vehicle_form(admin_client):
+    make_client(first_name="Anne", last_name="Adam")
+    data = {
+        "qc-client_type": "private",
+        "qc-first_name": "Marie",
+        "qc-last_name": "Lambert",
+        "qc-email": "marie@example.be",
+        "qc-phone": "0470 11 22 33",
+        "qc-street": "Rue Haute 5",
+        "qc-postal_code": "6700",
+        "qc-city": "Arlon",
+        "qc-country": "Belgique",
+    }
+    response = admin_client.post(reverse("storage:booking_quick_client"), data)
+    client = Client.objects.get(last_name="Lambert")
+    content = response.content.decode()
+    assert f'value="{client.pk}" selected' in content
+    assert "Anne Adam" in content  # the other clients stay in the list
+    # Out-of-band swaps: the client form closes and the new-vehicle form opens for the client.
+    assert '<div id="quick-client" hx-swap-oob="true"></div>' in content
+    assert '<div id="vehicle-field" hx-swap-oob="true">' in content
+    assert "Nouveau véhicule pour Marie Lambert" in content
+    assert 'name="qv-plate"' in content
+
+
+def test_quick_client_errors_stay_in_the_client_form(admin_client):
+    data = {"qc-client_type": "business", "qc-email": "info@example.be", "qc-country": "Belgique"}
+    response = admin_client.post(reverse("storage:booking_quick_client"), data)
+    assert response["HX-Retarget"] == "#quick-client"
+    content = response.content.decode()
+    assert "Le numéro de TVA est obligatoire pour une entreprise." in content
+    assert content.count("Ce champ est obligatoire.") == 4  # street, postal code, city, phone
+    assert Client.objects.count() == 0
+
+
+def test_quick_vehicle_form_has_all_vehicle_fields(admin_client):
+    url = reverse("storage:booking_quick_vehicle")
+    content = admin_client.get(url, {"client": make_client().pk}).content.decode()
+    for name in ["plate", "brand", "model", "length_m", "height_m", "notes"]:
+        assert f'name="qv-{name}"' in content
 
 
 # --- Detail and actions ------------------------------------------------------

@@ -9,7 +9,7 @@ SETTINGS_GROUPS = [
     ("Entrepôt", ["default_row_length_m", "vehicle_gap_m", "period_days"]),
     (
         "Tarifs & TVA",
-        ["price_per_period", "vat_regime", "vat_rate", "payment_terms_days"],
+        ["band_length_m", "price_per_band", "vat_regime", "vat_rate", "payment_terms_days"],
     ),
     (
         "Société (mentions sur factures)",
@@ -73,7 +73,7 @@ class AppSettingsForm(PicoFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Not required in the database (no sensible default), but needed before any booking.
-        self.fields["price_per_period"].required = True
+        self.fields["price_per_band"].required = True
 
     def groups(self):
         """[(title, anchor, [(bound field, is_wide), ...]), ...] for the template."""

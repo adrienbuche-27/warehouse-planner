@@ -60,7 +60,6 @@ MIDDLEWARE = [
     # Serves the CSS / JavaScript files (collected in staticfiles/) when DEBUG is off.
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -133,6 +132,9 @@ LOGOUT_REDIRECT_URL = "login"
 
 
 # Localisation: French (Belgium), Brussels time.
+# The whole app is in French whatever the browser's language: there is deliberately no
+# LocaleMiddleware, which would switch Django's own messages ("Ce champ est obligatoire.")
+# and number formats to the browser's language.
 # Date and number formats are overridden in config/formats/fr/formats.py.
 
 LANGUAGE_CODE = "fr-be"
