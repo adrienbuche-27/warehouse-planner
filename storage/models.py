@@ -1,6 +1,8 @@
 import datetime
+from dataclasses import dataclass
 from decimal import Decimal
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -73,6 +75,41 @@ class BookingStatus(models.TextChoices):
 ACTIVE_STATUSES = [BookingStatus.RESERVED, BookingStatus.STORED]
 
 
+class DocumentStatus(models.TextChoices):
+    """Result of the check of a document, done by hand by an admin for every booking."""
+
+    MISSING = "missing", "Manquant"
+    VALID = "valid", "Valide"
+    INVALID = "invalid", "Invalide"
+
+
+# Documents checked for every booking, even for a returning client or vehicle: the client's
+# ID and the proof of insurance for the booking period. Only the result of the check is kept
+# in the app; the paper copies stay in the physical folder (no file is stored).
+# URL name -> (field prefix on Booking, label).
+DOCUMENTS = {
+    "identite": ("id", "Pièce d'identité"),
+    "assurance": ("insurance", "Assurance"),
+}
+
+
+@dataclass(frozen=True)
+class DocumentCheck:
+    """One document of a booking, as shown on the screens."""
+
+    slug: str  # "identite" or "assurance", used in URLs
+    label: str
+    status: str
+    status_label: str
+    checked_at: datetime.datetime | None
+    checked_by: object  # a User, or None
+    note: str
+
+    @property
+    def is_valid(self) -> bool:
+        return self.status == DocumentStatus.VALID
+
+
 def compute_end_date(start_date: datetime.date, periods: int, period_days: int) -> datetime.date:
     """Last day of storage, inclusive: start + periods × period_days − 1 day.
 
@@ -88,6 +125,10 @@ class BookingQuerySet(models.QuerySet):
     def overlapping(self, start: datetime.date, end: datetime.date):
         """Bookings present on at least one day of [start, end] (both inclusive)."""
         return self.filter(start_date__lte=end, end_date__gte=start)
+
+    def documents_incomplete(self):
+        """Bookings where the ID or the insurance is not checked as valid yet."""
+        return self.exclude(id_status=DocumentStatus.VALID, insurance_status=DocumentStatus.VALID)
 
 
 class Booking(models.Model):
@@ -144,6 +185,40 @@ class Booking(models.Model):
         "taux de TVA (%)", max_digits=5, decimal_places=2, editable=False
     )
     notes = models.TextField("notes", blank=True)
+    # Document checks (see DOCUMENTS): the result, when and by whom, and an optional note
+    # (e.g. why a document is "invalide").
+    id_status = models.CharField(
+        "pièce d'identité",
+        max_length=10,
+        choices=DocumentStatus.choices,
+        default=DocumentStatus.MISSING,
+    )
+    id_checked_at = models.DateTimeField("pièce d'identité vérifiée le", null=True, blank=True)
+    id_checked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="pièce d'identité vérifiée par",
+    )
+    id_note = models.CharField("remarque sur la pièce d'identité", max_length=200, blank=True)
+    insurance_status = models.CharField(
+        "assurance",
+        max_length=10,
+        choices=DocumentStatus.choices,
+        default=DocumentStatus.MISSING,
+    )
+    insurance_checked_at = models.DateTimeField("assurance vérifiée le", null=True, blank=True)
+    insurance_checked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="assurance vérifiée par",
+    )
+    insurance_note = models.CharField("remarque sur l'assurance", max_length=200, blank=True)
     created_at = models.DateTimeField("créée le", auto_now_add=True)
     updated_at = models.DateTimeField("modifiée le", auto_now=True)
 
@@ -195,6 +270,28 @@ class Booking(models.Model):
     @property
     def is_active(self) -> bool:
         return self.status in ACTIVE_STATUSES
+
+    def document(self, slug: str) -> DocumentCheck:
+        prefix, label = DOCUMENTS[slug]
+        status = getattr(self, f"{prefix}_status")
+        return DocumentCheck(
+            slug=slug,
+            label=label,
+            status=status,
+            status_label=DocumentStatus(status).label,
+            checked_at=getattr(self, f"{prefix}_checked_at"),
+            checked_by=getattr(self, f"{prefix}_checked_by"),
+            note=getattr(self, f"{prefix}_note"),
+        )
+
+    @property
+    def documents(self) -> list[DocumentCheck]:
+        """The ID and insurance checks, in display order."""
+        return [self.document(slug) for slug in DOCUMENTS]
+
+    @property
+    def documents_complete(self) -> bool:
+        return all(document.is_valid for document in self.documents)
 
     @property
     def totals(self) -> Totals:

@@ -2,7 +2,7 @@
 
 Internal web app to manage a camping-car storage warehouse: clients and vehicles, space planning in 2-week periods, Belgian-compliant PDF invoices, and email reminders before storage ends.
 
-> **For Claude Code:** this file is the full specification (`README.md` is the short guide for users and maintainers). Implement it milestone by milestone (section 12), committing as described in section 13. When something here is ambiguous or conflicts with a technical constraint, stop and ask rather than guessing. Code, comments, commit messages and identifiers are in **English**; everything the user sees (UI, emails, PDFs) is in **French**.
+> **For Claude Code:** this file is the full specification (`README.md` is the setup guide with a short overview of the workflows; `docs/` holds the French user guide and the maintenance notes). Implement it milestone by milestone (section 12), committing as described in section 13. When something here is ambiguous or conflicts with a technical constraint, stop and ask rather than guessing. Code, comments, commit messages and identifiers are in **English**; everything the user sees (UI, emails, PDFs) is in **French**.
 
 ---
 
@@ -43,7 +43,7 @@ Dependencies are pinned in `requirements.txt` (runtime) and `requirements-dev.tx
 
 ```
 .
-├── README.md               # setup and maintenance guide
+├── README.md               # setup guide and short overview of the workflows
 ├── CLAUDE.md               # this specification
 ├── .env.example
 ├── .gitignore              # db.sqlite3, .env, media/, venv/, __pycache__/, backups/
@@ -60,7 +60,7 @@ Dependencies are pinned in `requirements.txt` (runtime) and `requirements-dev.tx
 ├── templates/              # base.html + per-app templates (French)
 ├── static/                 # pico.css, htmx.min.js, app.css, logo placeholder
 ├── deploy/windows/         # install.ps1, update.ps1, uninstall.ps1, run_server.py, run_task.py
-├── docs/                   # INSTALLATION-WINDOWS.md (French, for the person installing)
+├── docs/                   # GUIDE-UTILISATEUR.md and INSTALLATION-WINDOWS.md (French), MAINTENANCE.md, BACKLOG.md
 └── tests/
 ```
 
@@ -171,6 +171,8 @@ Provide a "Créer N rangées" action on the settings page to bulk-create rows R0
 | `price_per_period` | Decimal | **Computed and stored**: `band_count × price_per_band` |
 | `vat_regime`, `vat_rate` | | **Snapshot** at creation |
 | `notes` | Text | |
+| `id_status`, `insurance_status` | Choice | Document checks: `missing` (manquant, default), `valid` (valide), `invalid` (invalide), set by hand for **every** booking (never copied from an earlier one) |
+| `id_checked_at` / `_by` / `_note`, same for `insurance_` | | When, by whom, optional note (e.g. why "invalide"). **No document file is stored**: the paper copies stay in the physical folder |
 | `created_at`, `updated_at` | | |
 
 `total_excl_vat = periods × price_per_period`.
@@ -269,6 +271,7 @@ Navigation bar: **Tableau de bord · Planning · Réservations · Clients · Vé
 - KPI cards: occupancy today (% of total metres and number of vehicles), free metres, active bookings, unpaid issued invoices (count and amount), overdue invoices.
 - **Fin de stockage dans les 14 prochains jours**: table with vehicle, client, row/position, end date, reminder sent (yes/no), boxed-in warning icon with link to the move plan.
 - **Prochaines entrées**: bookings starting in the next 14 days, also with blocked-entry warnings.
+- **Documents à compléter**: bookings in stock or starting in the next 14 days whose ID or insurance is not checked as valid, linking to the bookings list filtered on them.
 - **Occupation prévue**: bar chart of occupancy % for the next 12 two-week windows. Inline SVG generated server-side, or Chart.js from CDN; no build step.
 - **Chiffre d'affaires mensuel**: bar chart, sum of `total_excl_vat` of issued invoices per month over the last 12 months.
 
@@ -287,6 +290,7 @@ Navigation bar: **Tableau de bord · Planning · Réservations · Clients · Vé
 - **Booking form**: select client, then vehicle (HTMX dependent dropdown; "+ Nouveau client" and "+ Nouveau véhicule" open the full forms inline: a new client is selected and goes straight on to the new-vehicle form), start date, number of periods. The end date and price (HT, TVA, TTC) are computed live. "Proposer un emplacement" shows the ranked suggestions from 6.3 (top 5); picking one fills row and position. Once vehicle, start date and periods are set, the form also shows the warehouse map for the stay: every vehicle present at some point (those present only part of the time drawn lighter, vehicles using a position one after another stacked), free metres at the busiest moment, and per row ✓ fits, ★ among the top 5 suggestions, ⚠ fits with vehicles to move (move plan shown when picked), ✗ not enough room. Clicking a row that fits fills row and its best position. Manual row/position entry is allowed, but `check_fit` must pass. Blocking conflicts show a warning with the move plan and require ticking "Je confirme".
 - **Trouver un emplacement** (Réservations page), for placing one van before booking it, kept separate from the Plan de l'entrepôt: start date, number of periods, and a length (van not registered yet) or a registered vehicle. Shows the 5 best places from 6.3 with "Réserver ici", then the warehouse map for the stay with ✓ / ★ / ⚠ / ✗ per row (move plan in a collapsible line). Both open the booking form with row, best position, start date, periods and the vehicle prefilled.
 - Booking detail: all info, status actions (Marquer en stock / Marquer sortie / Annuler / Prolonger), linked invoices, reminder history, blockers.
+- **Documents** (booking detail): "Pièce d'identité" and "Assurance", each changed in one click (Valide / Invalide / Manquant, optional note), showing who checked and when. The bookings list shows both as small badges and has a "Documents à compléter" filter.
 
 ### 7.4 Clients and Véhicules
 
@@ -425,7 +429,7 @@ Use `pytest` + `pytest-django`, plus `factory_boy` or simple fixture helpers. Mi
 
 ## 12. Milestones
 
-Each milestone ends with: tests passing, ruff clean, README updated if behaviour changed, merged into `main`.
+Each milestone ends with: tests passing, ruff clean, README, `docs/GUIDE-UTILISATEUR.md` and `docs/MAINTENANCE.md` updated if behaviour changed, merged into `main`.
 
 | # | Milestone | Content | Done when |
 |---|---|---|---|

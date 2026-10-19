@@ -12,8 +12,18 @@ class RowAdmin(admin.ModelAdmin):
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ["vehicle", "row", "position", "start_date", "end_date", "periods", "status"]
-    list_filter = ["status", "row"]
+    list_display = [
+        "vehicle",
+        "row",
+        "position",
+        "start_date",
+        "end_date",
+        "periods",
+        "status",
+        "id_status",
+        "insurance_status",
+    ]
+    list_filter = ["status", "id_status", "insurance_status", "row"]
     search_fields = [
         "vehicle__plate",
         "vehicle__client__last_name",

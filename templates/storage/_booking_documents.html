@@ -1,0 +1,25 @@
+{# "Documents" block of the booking detail: ID and insurance, checked for every booking. #}
+<article id="documents">
+  <header class="page-header">
+    <h2>Documents</h2>
+    {% if booking.documents_complete %}<span class="ok">✓ Documents complets</span>{% else %}<span class="warn">⚠ Documents à compléter</span>{% endif %}
+  </header>
+  <p><small class="muted">À vérifier pour chaque réservation, même pour un client ou un véhicule déjà connu. Les copies papier sont classées dans le dossier : seul le résultat de la vérification est enregistré ici.</small></p>
+  <div class="documents-grid">
+    {% for doc in booking.documents %}
+    <form method="post" action="{% url 'storage:booking_document' booking.pk doc.slug %}" class="document-check">
+      {% csrf_token %}
+      <div class="document-head"><strong>{{ doc.label }}</strong> {% include "includes/document_badge.html" %}</div>
+      <small class="muted">{% if doc.checked_at %}Modifié le {{ doc.checked_at|date:"d/m/Y à H:i" }}{% if doc.checked_by %} par {{ doc.checked_by.get_username }}{% endif %}{% else %}Pas encore vérifié{% endif %}</small>
+      {% if doc.note %}<p class="document-note">Remarque : {{ doc.note }}</p>{% endif %}
+      <input type="text" name="note" maxlength="200" aria-label="Remarque sur : {{ doc.label }}"
+             placeholder="Remarque (facultatif), ex. nom différent, expirée…">
+      <div class="document-actions">
+        <button type="submit" name="status" value="valid" class="{% if doc.status != 'valid' %}outline{% endif %}">✓ Valide</button>
+        <button type="submit" name="status" value="invalid" class="danger{% if doc.status != 'invalid' %} outline{% endif %}">✗ Invalide</button>
+        <button type="submit" name="status" value="missing" class="secondary{% if doc.status != 'missing' %} outline{% endif %}">Manquant</button>
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+</article>

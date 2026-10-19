@@ -21,7 +21,7 @@ from core.models import AppSettings
 from invoicing import services as invoicing
 from invoicing.models import CreditNote, Invoice, NumberSequence
 from storage import services
-from storage.models import Booking, BookingStatus, Row
+from storage.models import Booking, BookingStatus, DocumentStatus, Row
 
 FIRST_NAMES = [
     "Jean", "Marie", "Luc", "Anne", "Paul", "Sophie", "Marc", "Julie", "Pierre", "Claire",
@@ -221,10 +221,35 @@ class Command(BaseCommand):
             elif start <= today:
                 booking.status = BookingStatus.STORED
                 booking.actual_check_in = start
+            self._documents(rng, booking, today)
             booking.save()
             created += 1
         boxed_in = sum(1 for b in Booking.objects.active() if services.move_plans(b))
         return created, boxed_in
+
+    @staticmethod
+    def _checked_documents(day) -> dict:
+        """ID and insurance checked as valid on `day` (by nobody in particular)."""
+        checked_at = timezone.make_aware(datetime.datetime.combine(day, datetime.time(9, 30)))
+        return {
+            "id_status": DocumentStatus.VALID,
+            "id_checked_at": checked_at,
+            "insurance_status": DocumentStatus.VALID,
+            "insurance_checked_at": checked_at,
+        }
+
+    def _documents(self, rng, booking, today):
+        """Vehicles already in: documents mostly checked at entry, about 1 in 4 still to complete.
+        Bookings to come: about half checked, the others missing, a few invalid."""
+        started = booking.start_date <= today
+        if rng.random() < (0.75 if started else 0.5):
+            for field, value in self._checked_documents(min(booking.start_date, today)).items():
+                setattr(booking, field, value)
+            return
+        if rng.random() < 0.3:
+            booking.insurance_status = DocumentStatus.INVALID
+            booking.insurance_note = "Attestation expirée avant la fin du stockage"
+            booking.insurance_checked_at = timezone.now()
 
     def _past_bookings(self, rng, vehicles, count=30):
         """Finished stays over the past year, so the revenue chart has a history."""
@@ -248,6 +273,7 @@ class Command(BaseCommand):
                 status=BookingStatus.ENDED,
                 actual_check_in=start,
                 actual_check_out=end,
+                **self._checked_documents(start),
             )
             created += 1
         return created

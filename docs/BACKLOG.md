@@ -6,7 +6,24 @@ left out of V1 (Peppol, waitlist, GDPR tools…).
 
 ## To do
 
-### V3-1 – Document checks on each booking
+### V3-2 – Document status colours
+
+*Bookings · display · small*
+
+Make the document statuses (V3-1) readable at a glance, everywhere they appear: the
+"Documents" block of a booking, the "ID" / "Ass." badges in the bookings list and the
+"Documents à compléter" list on the dashboard.
+
+- **Valide**: green.
+- **Manquant**: orange (today it is grey).
+- **Invalide**: stays red.
+
+CSS only (`.doc-valid`, `.doc-missing`, `.doc-invalid` in `static/css/app.css`), keeping
+enough contrast for the text in the badges.
+
+## Done (V3)
+
+### V3-1 – Document checks on each booking ✓
 
 *Bookings · compliance · small to medium*
 

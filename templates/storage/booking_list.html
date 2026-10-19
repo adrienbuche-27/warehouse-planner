@@ -29,6 +29,10 @@
     <option value="">Tous les clients</option>
     {% for client in clients %}<option value="{{ client.pk }}" {% if client.pk|stringformat:"s" == client_id %}selected{% endif %}>{{ client.display_name }}</option>{% endfor %}
   </select>
+  <select name="documents" aria-label="Documents">
+    <option value="">Tous les documents</option>
+    <option value="a-completer" {% if documents == "a-completer" %}selected{% endif %}>Documents à compléter</option>
+  </select>
   <label class="date-filter">Du <input type="date" name="du" value="{{ date_from|date:'Y-m-d' }}"></label>
   <label class="date-filter">au <input type="date" name="au" value="{{ date_to|date:'Y-m-d' }}"></label>
   <noscript><button type="submit">Filtrer</button></noscript>

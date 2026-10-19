@@ -30,6 +30,7 @@ def dashboard(request):
         "invoices": dashboard_data.invoice_figures(today),
         "ending_soon": dashboard_data.ending_soon(today),
         "upcoming_entries": dashboard_data.upcoming_entries(today),
+        "documents_to_complete": dashboard_data.documents_to_complete(today),
         "failed_reminders": dashboard_data.failed_reminders(today),
         "forecast_chart": dashboard_data.occupancy_forecast_chart(today),
         "revenue_chart": dashboard_data.revenue_chart(today),

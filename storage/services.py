@@ -22,7 +22,14 @@ from clients.models import Vehicle
 from core.formatting import format_money
 from core.models import AppSettings
 from core.pricing import Totals, band_count, compute_totals
-from storage.models import Booking, BookingStatus, Row, compute_end_date
+from storage.models import (
+    DOCUMENTS,
+    Booking,
+    BookingStatus,
+    DocumentStatus,
+    Row,
+    compute_end_date,
+)
 
 ROW_CODE_PATTERN = re.compile(r"^R(\d+)$")
 MAX_ROWS_PER_BULK_CREATE = 200
@@ -550,6 +557,22 @@ def cancel(booking: Booking) -> None:
         )
     booking.status = BookingStatus.CANCELLED
     booking.save()
+
+
+def set_document_status(booking: Booking, slug: str, status: str, user, note: str = "") -> None:
+    """Record the check of a document of the booking ("identite" or "assurance"): its status,
+    when, by whom, and an optional note. Checks are done again for every booking."""
+    if slug not in DOCUMENTS:
+        raise BookingActionError("Document inconnu.")
+    if status not in DocumentStatus.values:
+        raise BookingActionError("Statut de document inconnu.")
+    prefix, _ = DOCUMENTS[slug]
+    setattr(booking, f"{prefix}_status", status)
+    setattr(booking, f"{prefix}_checked_at", timezone.now())
+    setattr(booking, f"{prefix}_checked_by", user)
+    setattr(booking, f"{prefix}_note", note.strip()[:200])
+    fields = ["status", "checked_at", "checked_by", "note"]
+    booking.save(update_fields=[f"{prefix}_{name}" for name in fields] + ["updated_at"])
 
 
 @dataclass

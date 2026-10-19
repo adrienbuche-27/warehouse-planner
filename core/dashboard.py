@@ -114,6 +114,19 @@ def upcoming_entries(today: datetime.date) -> list[UpcomingEvent]:
     return [UpcomingEvent(booking, get_blockers(booking, ENTRY)) for booking in bookings]
 
 
+def documents_to_complete(today: datetime.date) -> list[Booking]:
+    """Bookings in stock or starting within UPCOMING_DAYS days whose ID or insurance is not
+    checked as valid yet (both are checked for every booking)."""
+    horizon = today + datetime.timedelta(days=UPCOMING_DAYS)
+    return list(
+        Booking.objects.active()
+        .documents_incomplete()
+        .filter(start_date__lte=horizon)
+        .select_related("vehicle__client", "row")
+        .order_by("start_date", "row__display_order", "position")
+    )
+
+
 def failed_reminders(today: datetime.date):
     """Failed reminders of the last 30 days that have not been sent successfully since."""
     failures = (
